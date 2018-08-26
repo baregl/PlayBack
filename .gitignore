@@ -1,0 +1,6 @@
+server/target/
+**/*.o
+**/*.d
+.clang_complete
+
+

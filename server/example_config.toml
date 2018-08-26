@@ -1,0 +1,3 @@
+[devices.test]
+pass = "hunter2"
+dir = "/tmp/plybck/testcl/"

@@ -1,0 +1,17 @@
+[package]
+name = "plybcksrv"
+version = "0.1.0"
+authors = ["baregl <baregl@users.noreply.github.com>"]
+
+[dependencies]
+log = "0.4.4"
+simplelog = "0.5"
+failure = "0.1"
+structopt = "0.2"
+structopt-derive = "0.2"
+murmur3 = "0.4"
+byteorder = "1.2"
+filetime = "0.2"
+toml = "0.4"
+serde = "1"
+serde_derive = "1"
