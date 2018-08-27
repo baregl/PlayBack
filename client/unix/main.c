@@ -75,22 +75,20 @@ void clbk_send(uint8_t *data, uint32_t length)
 
 uint32_t clbk_receive(uint8_t *data, uint32_t length)
 {
-
 	return read(tcp_connection, data, length);
 }
 
 
 // Open file for reading, close previous
-void clbk_open(char *path)
+int clbk_open(char *path)
 {
 	printf("Opening %s\n", path);
 	if(open_file != -1)
 		close(open_file);
 	open_file = open(path, O_RDONLY);
 	if (open_file == -1) {
-		printf("Couldn't open file %s\n", path);
-		clbk_show_error("Unable to continue");
 	}
+	return (open_file == -1)? open_file : 0;
 }
 
 uint32_t clbk_read(uint8_t *data, uint32_t length)
@@ -137,8 +135,9 @@ struct dir_entry *clbk_read_dir(void *dird_void)
 			sprintf(name, "%s/%s", dird->path, dirret->d_name);
 			struct stat statbuffer;
 			if (stat(name, &statbuffer) == -1) {
-				printf("%s - %s - %s\n", name, dird->path, dirret->d_name);
-				clbk_show_error("Couldn't stat file for readdir");
+				clbk_show_status("Couldn't stat ");
+				clbk_show_status(name);
+				clbk_show_error(" for readdir\n");
 			}
 			dire.size = statbuffer.st_size;
 			dire.mtime = statbuffer.st_mtime;
@@ -150,7 +149,7 @@ struct dir_entry *clbk_read_dir(void *dird_void)
 			dire.mtime = 0;
 			break;
 		default:
-			clbk_show_error("Invalid file in dir");
+			clbk_show_error("Invalid file in dir\n");
 	}
 	dire.name = dirret->d_name;
 	return &dire;
@@ -165,7 +164,7 @@ uint32_t clbk_file_size(char *path)
 	return statbuffer.st_size;
 }
 
-// When this function returns, run returns
+// Exit in this function
 void clbk_show_error(char *msg)
 {
 	printf("%s\n", msg);
@@ -174,6 +173,11 @@ void clbk_show_error(char *msg)
 	if (tcp_connection != -1)
 		close(tcp_connection);
 	exit(1);
+}
+
+void clbk_show_status(char *status)
+{
+	printf("%s", status);
 }
 
 void clbk_config_entry(char *key, char *val)

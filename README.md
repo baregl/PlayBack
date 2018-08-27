@@ -46,7 +46,6 @@ Everything is licensed under AGPL, found in the LICENSE file, except files
 with their own copyright header.
 ## TODO
 - Add 3DS & Vita clients
-- Add status output to client
 - Add logging to server
 ## Protocol
 - Port 9483 with TCP

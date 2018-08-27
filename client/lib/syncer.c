@@ -29,6 +29,7 @@ void syncer_run(char *dir, char *devname, char *devid, char *ver, char *passwd)
 		clbk_send(data, sizeof(data));
 	}
 	LOG("Sending entries\n");
+    clbk_show_status("Sending entries\n");
 	send_dir(dir);
 	LOG("Sending end of entries\n");
 	{
@@ -58,9 +59,19 @@ void syncer_run(char *dir, char *devname, char *devid, char *ver, char *passwd)
 				clbk_send(transfer_buffer, 4);
 				LOG("Sent file size\n");
 			}
-			clbk_open((char *)transfer_req + 1);
+			if (clbk_open((char *)transfer_req + 1) == -1) {
+				clbk_show_status("Couldn't open ");
+				clbk_show_status((char *)transfer_req + 1);
+				clbk_show_error("");
+			}
 			uint32_t read;
 			uint32_t h = 0;
+            if (transfer_req[0] == 'h')
+                clbk_show_status("Hashing ");
+            else
+                clbk_show_status("Sending ");
+            clbk_show_status((char *) transfer_req + 1);
+            clbk_show_status("\n");
 			while ((read = clbk_read(transfer_buffer, sizeof(transfer_buffer)))
 				   == sizeof(transfer_buffer)) {
 				h = murmur3_32_step(h, transfer_buffer, read);
@@ -77,6 +88,7 @@ void syncer_run(char *dir, char *devname, char *devid, char *ver, char *passwd)
 			LOG("Sent checksum %x\n", h);
 		}
 	} while (transfer_req[0] != 'e');
+    clbk_show_status("Done\n");
 }
 
 
@@ -94,16 +106,15 @@ void add_entry(uint8_t *entry)
 
 void send_dir(char *dir)
 {
+    LOG("Opening %s\n", dir);
 	void *dird = clbk_open_dir(dir);
 	if (dird == NULL)
 		clbk_show_error("Couldn't open dir");
-	LOG("Opening %s\n", dir);
 	struct dir_entry *dentry;
 	while ((dentry = clbk_read_dir(dird)) != NULL) {
 		if ((!strcmp(".", dentry->name)) || (!strcmp("..", dentry->name)))
 			continue;
-		LOG("sending entry\n");
-		LOG("sending %s\n", dentry->name);
+		LOG("sending entry %s\n", dentry->name);
 		// So we can have a final \0
 		static uint8_t entry[entry_size + 1];
 		entry[0] = dentry->dir ? 'd' : 'f';

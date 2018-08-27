@@ -27,7 +27,8 @@ struct dir_entry {
 void clbk_send(uint8_t *data, uint32_t length);
 uint32_t clbk_receive(uint8_t *data, uint32_t length);
 // Open file for reading, close previous
-void clbk_open(char *path);
+// Return -1 if it failed
+int clbk_open(char *path);
 uint32_t clbk_read(uint8_t *data, uint32_t length);
 
 // The path is absolute
@@ -37,8 +38,10 @@ void clbk_close_dir(void *dird);
 // return null for last entry
 struct dir_entry *clbk_read_dir(void *dird);
 uint32_t clbk_file_size(char *path);
-// When this function returns, run returns
+// Doesn't return
 void clbk_show_error(char *msg);
+// The newline is explicitly passed
+void clbk_show_status(char *status);
 
 // When returning, close the open file & TCP connection
 void syncer_run(char *dir, char *devname, char *devid, char *ver, char *passwd);
