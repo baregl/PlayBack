@@ -44,7 +44,10 @@ void syncer_run(char *dir, char *devname, char *devid, char *ver, char *passwd)
 	// And make sure it's null terminated
 	transfer_req[transfer_req_size] = 0;
 	do {
-		clbk_receive(transfer_req, sizeof(transfer_req));
+		if (clbk_receive(transfer_req, transfer_req_size)
+			!= transfer_req_size) {
+				clbk_show_error("Transfer Request too small, probably connection interrupted");
+			}
 		LOG("Received request\n");
 		if (transfer_req[0] == 'f' || transfer_req[0] == 'h')
 		{
@@ -53,7 +56,7 @@ void syncer_run(char *dir, char *devname, char *devid, char *ver, char *passwd)
 			// Just so this isn't stack allocated
 			static uint8_t transfer_buffer[transfer_size];
 			uint32_t size = clbk_file_size((char *)transfer_req + 1);
-			LOG("File size is %i\n", size);
+			LOG("File size is %li\n", size);
 			if (transfer_req[0] == 'f') {
 				bytiffy_uint32(transfer_buffer, size);
 				clbk_send(transfer_buffer, 4);
@@ -85,7 +88,7 @@ void syncer_run(char *dir, char *devname, char *devid, char *ver, char *passwd)
 			}
 			bytiffy_uint32(transfer_buffer, h);
 			clbk_send(transfer_buffer, 4);
-			LOG("Sent checksum %x\n", h);
+			LOG("Sent checksum %lx\n", h);
 		}
 	} while (transfer_req[0] != 'e');
     clbk_show_status("Done\n");
@@ -119,7 +122,7 @@ void send_dir(char *dir)
 		static uint8_t entry[entry_size + 1];
 		entry[0] = dentry->dir ? 'd' : 'f';
 		entry[1] = 0; entry[2] = 0; entry[3] = 0;
-		LOG("with size: %i, mtime %li\n", dentry->size, dentry->mtime);
+		LOG("with size: %li, mtime %lli\n", dentry->size, dentry->mtime);
 		bytiffy_uint32(entry + 4, dentry->size);
 		bytiffy_uint32(entry + 8, (dentry->mtime & 0xFFFFFFFF));
 		bytiffy_uint32(entry + 12, ((dentry->mtime >> 32) & 0xFFFFFFFF));

@@ -8,14 +8,14 @@ LIB = ../lib
 BIN = plybk_c
 
 SRC=${wildcard *.c} $(wildcard ${LIB}/*.c )
-OBJ=${SRC:.c=.o}
+OBJ=${SRC:.c=.unix.o}
 DEP=${SRC:.c=.d}
 INC=${LIB}
 
 CFLAGS=-std=gnu99 -Wall -Wextra -O2 -flto
 LDFLAGS=-flto
 
-.PHONY: all clean
+.PHONY: all clean clang-complete
 
 all:  clang-complete ${BIN}
 
@@ -26,7 +26,7 @@ ${BIN}: ${OBJ}
 	@echo [L] $@
 	${CC} ${LDFLAGS} -o $@ $^
 
-%.o: %.c
+%.unix.o: %.c
 	@echo [C] $<
 	${CC} ${CFLAGS} -MMD -I${INC} -c -o $@ $<
 
