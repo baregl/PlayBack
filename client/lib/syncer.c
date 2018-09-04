@@ -112,8 +112,10 @@ void send_dir(char *dir)
 {
     LOG("Opening %s\n", dir);
 	void *dird = clbk_open_dir(dir);
-	if (dird == NULL)
-		clbk_show_error("Couldn't open dir");
+	if (dird == NULL) {
+		clbk_show_status("Couldn't open dir");
+		clbk_show_error(dir);
+		}
 	struct dir_entry *dentry;
 	while ((dentry = clbk_read_dir(dird)) != NULL) {
 		if ((!strcmp(".", dentry->name)) || (!strcmp("..", dentry->name)))

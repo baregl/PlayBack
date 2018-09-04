@@ -56,13 +56,17 @@ int main(void)
 	sceSysmoduleLoadModule(SCE_SYSMODULE_NET);
 	sceNetInit(&(SceNetInitParam){net_mem, sizeof(net_mem), 0});
 	tcp_connection = socket(PF_INET, SOCK_STREAM, 0);
+	struct hostent *host;
+	if ((host = gethostbyname(server)) == NULL) {
+		clbk_show_error("Couldn't resove server");
+	}
 	int cret = connect(tcp_connection, (const struct sockaddr *)
-			&((struct sockaddr_in){
-					.sin_family = AF_INET,
-						.sin_port = htons(PORT),
-						.sin_addr.s_addr = *(long*)(
-							gethostbyname(server)->h_addr)}),
-			sizeof(struct sockaddr_in));
+					   &((struct sockaddr_in){
+							   .sin_family = AF_INET,
+								   .sin_port = htons(PORT),
+								   .sin_addr.s_addr = *(long*)(
+									   host->h_addr)}),
+					   sizeof(struct sockaddr_in));
 
 	if (tcp_connection == -1 || cret == -1)
 		clbk_show_error("Connect to server failed");
