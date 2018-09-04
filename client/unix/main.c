@@ -132,7 +132,7 @@ struct dir_entry *clbk_read_dir(void *dird_void)
 		{
 			dire.dir = false;
 			char name[strlen(dird->path) + strlen(dirret->d_name) + 2];
-			sprintf(name, "%s/%s", dird->path, dirret->d_name);
+			sprintf(name, "%s%s", dird->path, dirret->d_name);
 			struct stat statbuffer;
 			if (stat(name, &statbuffer) == -1) {
 				clbk_show_status("Couldn't stat ");

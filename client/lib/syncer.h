@@ -31,7 +31,7 @@ uint32_t clbk_receive(uint8_t *data, uint32_t length);
 int clbk_open(char *path);
 uint32_t clbk_read(uint8_t *data, uint32_t length);
 
-// The path is absolute
+// The path is absolute & ends with '/'
 void *clbk_open_dir(char *path);
 void clbk_close_dir(void *dird);
 // allocate fodlre_entry statically

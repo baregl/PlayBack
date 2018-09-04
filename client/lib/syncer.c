@@ -14,6 +14,7 @@ void send_dir(char *dir);
 
 void syncer_run(char *dir, char *devname, char *devid, char *ver, char *passwd)
 {
+	// TODO Handle dir ending without '/'
 	{
 		LOG("Assembling header\n");
 		uint32_t pass = murmur3_32(passwd, strlen(passwd));
@@ -126,23 +127,24 @@ void send_dir(char *dir)
 		bytiffy_uint32(entry + 4, dentry->size);
 		bytiffy_uint32(entry + 8, (dentry->mtime & 0xFFFFFFFF));
 		bytiffy_uint32(entry + 12, ((dentry->mtime >> 32) & 0xFFFFFFFF));
-		uint16_t newlen = strlen(dir) + strlen(dentry->name) + 2;
+		uint16_t newlen = strlen(dir) + strlen(dentry->name) + 1;
 		if (newlen > 256) {
 			clbk_show_error("Filepath too long");
 			while(1);
 		}
 		// We null the rest of the entry here
 		strncpy((char *)entry + 16, dir, entry_size - 16);
-		// TODO Remove plattform specific file seperator
-		entry[16 + strlen(dir)] = '/';
-		strcpy((char *)entry + 17 + strlen(dir), dentry->name);
+		strcpy((char *)entry + 16 + strlen(dir), dentry->name);
 		entry[newlen + 16] = '\0';
 		LOG("Full path is %s, type %c\n", entry + 16, entry[0]);
 		add_entry(entry);
 		if (dentry->dir) {
 			// TODO Different types of allocations if vlas aren't supported
-			char path[newlen];
+			char path[newlen + 1];
 			memcpy(path, entry + 16, newlen);
+			// TODO Remove plattform specific file seperator
+			path[newlen - 1] = '/';
+			path[newlen] = 0;
 			send_dir(path);
 		}
 	}
