@@ -71,7 +71,7 @@ int main(void)
 	if (tcp_connection == -1 || cret == -1)
 		clbk_show_error("Connect to server failed");
 	LOG("Starting sync\n");
-	syncer_run(base, "samplecl", name, "0.1", pass);
+	syncer_run(base, "vita", name, "0.1", pass);
 
 	close(open_file);
 	close(tcp_connection);
