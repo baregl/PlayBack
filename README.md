@@ -29,6 +29,10 @@ You can only change or upload new files to the server, not read existing ones.
 - Clientlib
   - PKGJ for the config parser by Philippe Daouadi (BSD 2-Clause)
   - Murmur3 by Austin Appleby from qLibc ported by Seungyoung Kim (BSD 2-Clause)
+- Vita client
+  - Vitasdk by vitasdk (MIT/GPLv3)
+- 3ds client
+  - libctru by Smealum (MIT)
 - Server
   - Rust, so I'm reasonably sure it doesn't have RCE Bugs
   - Crates:
@@ -45,8 +49,33 @@ You can only change or upload new files to the server, not read existing ones.
 Everything is licensed under AGPL, found in the LICENSE file, except files
 with their own copyright header.
 ## TODO
-- Add 3DS & Vita clients
-- Add logging to server
+- Add server support support to server and implementations (lib doesn't care)
+- Do proper receiving on client side, currently relying on read being filled
+- 3DS
+  - It's amazingly slow, maybe use more native apis?
+    - Especially the initial transfer
+  - Handle timeout
+  - Add a way to exit mid-transfer
+- Vita
+  - Disable Sleep mode
+  - Disable Home Button
+- Logging for server
+- Save decryption & similar things
+  - Transparently or just dumping all of them into a seperate directory before
+    syncing? Use decrypted file times when dumping
+  - Also sdmc:/Nintendo 3DS/*/title
+- Add support for multiple sync directories.
+  (For example on vita, so ur0 & ux0 can be synced, without the other partitions)
+- Ideas for ports
+  - Wii/Wii U/Switch
+  - PS2
+    - Only memory cards? Memory cards & HDD? Only HDD, assuming that everyone uses OPL? Even USB?
+  - PS3/PS4
+  - XBox (nxdk)/XBox 360
+    - Xbox One doesn't yet have a homebrew scene
+  - PSP
+  - DS
+  - Basically everything with network and storage
 ## Protocol
 - Port 9483 with TCP
 - Little Endian
