@@ -164,17 +164,21 @@ struct dir_entry *clbk_read_dir(void *dird_void)
 		case DT_REG:
 		{
 			dire.dir = false;
+			// The sdmc directory entry already has the size, so no need to do a stat
+			// Especially since stat doesn't contain the mtime
+			sdmc_dir_t *dir = (sdmc_dir_t *)dird->dir->dirData->dirStruct;
+
+			if(*(uint32_t *)dir != SDMC_DIRITER_MAGIC)
+				clbk_show_error("Dir doesn't have diriter?");
+
+			FS_DirectoryEntry *entry = &dir->entry_data[dir->index];
+			dire.size = entry->fileSize;
 			char name[strlen(dird->path) + strlen(dirret->d_name) + 1];
 			sprintf(name, "%s%s", dird->path, dirret->d_name);
-			struct stat statbuffer;
-			if (stat(name, &statbuffer) == -1) {
-				clbk_show_status("Couldn't stat ");
-				clbk_show_status(name);
-				clbk_show_error(" for readdir\n");
+			if (sdmc_getmtime(name, &dire.mtime) != 0) {
+				clbk_show_status("Couldn't get mtime for");
+				clbk_show_error(name);
 			}
-			dire.size = statbuffer.st_size;
-			// TODO mtime is always 0, find another way
-			dire.mtime = statbuffer.st_mtime;
 		}
 		break;
 		case DT_DIR:
