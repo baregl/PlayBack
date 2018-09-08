@@ -47,9 +47,13 @@ fn sync_process(
     mut stream: TcpStream,
     devices: &HashMap<String, config::Device>,
 ) -> Result<(), Error> {
-    let mut header = [0; parse::HEADER_SIZE as usize];
-    stream.read_exact(&mut header).context("Reading header")?;
-    let header = parse::Header::get(&header).unwrap();
+    let mut header_data = [0; parse::HEADER_SIZE as usize];
+    stream
+        .read_exact(&mut header_data)
+        .context("Reading header")?;
+    let header = parse::Header::parse(&header_data)
+        .map_err(|err| format_err!("Failed to parse header: {}", err))?
+        .1;
     let base_dir = if let Some(device) = devices.get(&header.id) {
         if murmur3::murmur3_32(&mut io::Cursor::new(&device.pass), 0) == header.pass {
             path::PathBuf::from(&device.dir)
@@ -69,7 +73,9 @@ fn sync_process(
     stream
         .read_exact(&mut entry_buffer)
         .context("Reading entry")?;
-    entry = parse::Entry::get(&entry_buffer).context("Parsing entry")?;
+    entry = parse::Entry::parse(&entry_buffer)
+        .map_err(|err| format_err!("Failed to parse entry: {}", err))?
+        .1;
     while entry.entry_type != parse::EntryType::End {
         let path_buf = path::PathBuf::from(&entry.path);
         let mut path = path_buf.iter();
@@ -99,7 +105,9 @@ fn sync_process(
         stream
             .read_exact(&mut entry_buffer)
             .context("Reading entry")?;
-        entry = parse::Entry::get(&entry_buffer).context("Parsing entry")?;
+        entry = parse::Entry::parse(&entry_buffer)
+            .map_err(|err| format_err!("Failed to parse entry: {}", err))?
+            .1;
     }
 
     for entry in time_check_files {

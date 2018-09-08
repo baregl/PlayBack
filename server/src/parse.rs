@@ -1,8 +1,6 @@
-use byteorder::{LittleEndian, ReadBytesExt};
-use failure;
-use failure::ResultExt;
+use nom;
+use nom::{le_u32, le_u64};
 use std::ffi::OsString;
-use std::io::Cursor;
 use std::os::unix::ffi::OsStringExt;
 use std::path::PathBuf;
 
@@ -16,6 +14,50 @@ pub const REQUEST_SIZE: u32 = 257;
 // This needs to be a multiple of 4 for the hash
 pub const READ_SIZE: u32 = 1048576;
 
+fn parse_limited(input: &[u8], size: usize) -> nom::IResult<&[u8], Vec<u8>> {
+    if input.len() < size {
+        Err(nom::Err::Incomplete(nom::Needed::Size(size - input.len())))
+    } else if size == 0 {
+        error!("parse_limited_string size is 0");
+        Err(nom::Err::Error(error_position!(
+            input,
+            nom::ErrorKind::Custom(0x15E0)
+        )))
+    } else {
+        let (data, rest) = input.split_at(size);
+        let data = data.split(|&x| x == 0).next().unwrap().to_vec();
+        Ok((rest, data))
+    }
+}
+
+fn parse_limited_string(input: &[u8], size: usize) -> nom::IResult<&[u8], String> {
+    let ret = parse_limited(input, size);
+    match ret {
+        Ok((rest, data)) => {
+            match String::from_utf8(data) {
+                Ok(data) => Ok((rest, data)),
+                // TODO Figure out how to pass the error back
+                Err(error) => {
+                    error!("{}", error);
+                    Err(nom::Err::Error(error_position!(
+                        input,
+                        nom::ErrorKind::Custom(0x15E1)
+                    )))
+                }
+            }
+        }
+        Err(error) => Err(error),
+    }
+}
+
+fn parse_limited_path_buf(input: &[u8], size: usize) -> nom::IResult<&[u8], PathBuf> {
+    let ret = parse_limited(input, size);
+    match ret {
+        Ok((rest, data)) => Ok((rest, PathBuf::from(OsString::from_vec(data)))),
+        Err(error) => Err(error),
+    }
+}
+
 #[derive(PartialEq, Debug)]
 pub struct Header {
     pub name: String,
@@ -25,33 +67,21 @@ pub struct Header {
 }
 
 impl Header {
-    // buffer needs 36 Elements
-    pub fn get(buffer: &[u8]) -> Option<Self> {
-        if buffer.len() != 36 {
-            return None;
-        }
-        if !buffer.starts_with("PLYSYNC1".as_bytes()) {
-            return None;
-        }
-        let mut name = buffer[8..16].to_vec();
-        name.retain(|&x| x != 0);
-        let name = String::from_utf8(name).ok()?;
-        let mut id = buffer[16..24].to_vec();
-        id.retain(|&x| x != 0);
-        let id = String::from_utf8(id).ok()?;
-        let mut version = buffer[24..32].to_vec();
-        version.retain(|&x| x != 0);
-        let version = String::from_utf8(version).ok()?;
-        let pass = Cursor::new(&buffer[32..36])
-            .read_u32::<LittleEndian>()
-            .ok()?;
-        Some(Header {
-            name,
-            id,
-            version,
-            pass,
-        })
-    }
+    named!(
+        pub parse<Self>,
+        do_parse!(
+            tag!("PLYSYNC1")
+                >> name: apply!(parse_limited_string, 8)
+                >> id: apply!(parse_limited_string, 8)
+                >> version: apply!(parse_limited_string, 8)
+                >> pass: le_u32 >> (Header {
+                    name,
+                    id,
+                    version,
+                    pass,
+                })
+        )
+    );
 }
 
 #[derive(PartialEq, Debug)]
@@ -70,34 +100,26 @@ pub struct Entry {
 }
 
 impl Entry {
-    // buffer needs to have 272 elements
-    pub fn get(buffer: &[u8]) -> Result<Self, failure::Error> {
-        ensure!(
-            buffer.len() == ENTRY_SIZE as usize,
-            "Entry buffer length doesn't match"
-        );
-        let entry_type = match buffer[0] as char {
-            'f' => EntryType::File,
-            'd' => EntryType::Directory,
-            'e' => EntryType::End,
-            _ => bail!("Unknown entry type"),
-        };
-        let size = Cursor::new(&buffer[4..8])
-            .read_u32::<LittleEndian>()
-            .context("Parsing size")?;
-        let mtime = Cursor::new(&buffer[8..16])
-            .read_u64::<LittleEndian>()
-            .context("Parsing mtime")?;
-        let mut path = buffer[16..272].to_vec();
-        path.retain(|&x| x != 0);
-        let path = PathBuf::from(OsString::from_vec(path));
-        Ok(Entry {
-            entry_type,
-            path,
-            size,
-            mtime,
-        })
-    }
+    named!(
+        pub parse<Self>,
+        do_parse!(
+            entry_type: alt!(
+                          value!(EntryType::End, tag!("e")) |
+                          value!(EntryType::File, tag!("f")) |
+                          value!(EntryType::Directory, tag!("d"))
+            ) >>
+            tag!("\0\0\0") >>
+                size: le_u32 >>
+                mtime: le_u64 >>
+                path: apply!(parse_limited_path_buf, 256) >>
+                (Entry {
+                    entry_type,
+                    size,
+                    mtime,
+                    path,
+                })
+        )
+    );
 }
 
 #[cfg(test)]
@@ -111,7 +133,44 @@ mod tests {
         assert_eq!(&name, "HI");
     }
     #[test]
-    fn header_parsing() {
+    fn entry_parsing_nom() {
+        use super::*;
+        let mut data = String::from("d").into_bytes();
+        data.push(0x00);
+        data.push(0x00);
+        data.push(0x00);
+        // size
+        data.push(0xAB);
+        data.push(0xCD);
+        data.push(0xEF);
+        data.push(0x05);
+        // mtime
+        data.push(0xCD);
+        data.push(0xAB);
+        data.push(0xEF);
+        data.push(0x05);
+        data.push(0x00);
+        data.push(0x00);
+        data.push(0x00);
+        data.push(0x00);
+        // path
+        data.extend_from_slice("/test".as_bytes());
+        for _ in 0..251 {
+            data.push(0);
+        }
+        println!("{}", data.len());
+        assert_eq!(
+            Entry::parse(&data).unwrap().1,
+            Entry {
+                entry_type: EntryType::Directory,
+                size: 0x05EFCDAB,
+                mtime: 0x05EFABCD,
+                path: "/test".to_string().into(),
+            }
+        );
+    }
+    #[test]
+    fn header_parsing_nom() {
         use super::*;
         let mut data = String::from("PLYSYNC13ds\0\0\0\0\0SlimBlue0.0.0\0\0\0").into_bytes();
         data.push(0xAB);
@@ -119,7 +178,7 @@ mod tests {
         data.push(0xEF);
         data.push(0x05);
         assert_eq!(
-            Header::get(&data).unwrap(),
+            Header::parse(&data).unwrap().1,
             Header {
                 name: "3ds".to_string(),
                 id: "SlimBlue".to_string(),
