@@ -7,6 +7,6 @@ pub struct Opt {
     #[structopt(short = "v", parse(from_occurrences))]
     pub verbosity: u8,
     /// Config file
-    #[structopt(short = "c", default_value = "/etc/plybck.toml", parse(from_os_str))]
+    #[structopt(short = "c", long = "config", default_value = "/etc/plybck.toml", parse(from_os_str))]
     pub config: PathBuf,
 }

@@ -7,7 +7,7 @@ use structopt::StructOpt;
 fn main() {
     let opt = opt::Opt::from_args();
     // Default verbosity warn
-    logs::init(5)
+    logs::init(opt.verbosity)
         .map_err(|e| {
             println!("{}", e);
             e

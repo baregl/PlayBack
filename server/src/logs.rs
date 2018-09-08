@@ -9,9 +9,9 @@ pub fn init(verbosity: u8) -> Result<(), SetLoggerError> {
 pub fn report(error: Error) {
     error!("{}", error);
     for e in error.iter_chain().skip(1) {
-        warn!("Caused By: {}", e);
+        error!("Caused By: {}", e);
         if let Some(bt) = e.backtrace() {
-            warn!("Backtrace: {}", bt);
+            error!("Backtrace: {}", bt);
         }
     }
 }
