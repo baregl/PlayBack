@@ -63,13 +63,54 @@ fn sync_process(
     } else {
         bail!("Device {} isn't registered", header.id);
     };
+    let (dir_map, time_check_files, mut missing_files) =
+        receive_entries(&mut stream, &base_dir).context("Receiving entries")?;
+    for entry in time_check_files {
+        if !check_file_checksum(&mut stream, &base_dir, &entry)
+            .context("Checking the file checksum")?
+        {
+            missing_files.push(entry);
+        } else {
+            let mut full_path = get_full_path(&base_dir, &entry.path)?;
+            let attr =
+                fs::metadata(&full_path).context("Opening checksummed file for mtime adjustments")?;
+            let mtime = FileTime::from_unix_time(entry.mtime as i64, 0);
+            let atime = FileTime::from_last_access_time(&attr);
+            filetime::set_file_times(full_path, atime, mtime)
+                .context("Setting mtime for checksummed file")?;
+        }
+    }
 
+    for entry in missing_files {
+        download_file(&mut stream, &base_dir, &entry)
+            .context(format!("Downloading File {}", entry.path.display()))?;
+    }
+    let mut header = [0; parse::REQUEST_SIZE as usize];
+    header[0] = 'e' as u8;
+    stream
+        .write(&header)
+        .context("Writing final download header")?;
+    clean_tree_up(&base_dir, dir_map).context("Cleaning tree up")?;
+    Ok(())
+}
+
+fn receive_entries(
+    stream: &mut TcpStream,
+    base_dir: &path::Path,
+) -> Result<
+    (
+        HashMap<ffi::OsString, MapEntry>,
+        Vec<parse::Entry>,
+        Vec<parse::Entry>,
+    ),
+    Error,
+> {
     let mut dir_map = HashMap::new();
     let mut time_check_files = Vec::new();
     let mut missing_files = Vec::new();
-
     let mut entry_buffer = [0; parse::ENTRY_SIZE as usize];
     let mut entry;
+
     stream
         .read_exact(&mut entry_buffer)
         .context("Reading entry")?;
@@ -109,34 +150,7 @@ fn sync_process(
             .map_err(|err| format_err!("Failed to parse entry: {}", err))?
             .1;
     }
-
-    for entry in time_check_files {
-        if !check_file_checksum(&mut stream, &base_dir, &entry)
-            .context("Checking the file checksum")?
-        {
-            missing_files.push(entry);
-        } else {
-            let mut full_path = get_full_path(&base_dir, &entry.path)?;
-            let attr =
-                fs::metadata(&full_path).context("Opening checksummed file for mtime adjustments")?;
-            let mtime = FileTime::from_unix_time(entry.mtime as i64, 0);
-            let atime = FileTime::from_last_access_time(&attr);
-            filetime::set_file_times(full_path, atime, mtime)
-                .context("Setting mtime for checksummed file")?;
-        }
-    }
-
-    for entry in missing_files {
-        download_file(&mut stream, &base_dir, &entry)
-            .context(format!("Downloading File {}", entry.path.display()))?;
-    }
-    let mut header = [0; parse::REQUEST_SIZE as usize];
-    header[0] = 'e' as u8;
-    stream
-        .write(&header)
-        .context("Writing final download header")?;
-    clean_tree_up(&base_dir, dir_map).context("Cleaning tree up")?;
-    Ok(())
+    Ok((dir_map, time_check_files, missing_files))
 }
 
 #[derive(Debug)]
@@ -297,8 +311,9 @@ fn download_file(
         .parent()
         .ok_or_else(|| format_err!("Couldn't get parent for {}", full_path.display()))?;
     fs::create_dir_all(dir).context(format!("Creating dirs for {}", full_path.display()))?;
-    // Remove eventual left over dir
-    // If this doesn't work, it's probably because there isn't anything there
+    // If there was a dir with this name, remove it now
+    // If it fails, it's probably because nothing was there, otherwise
+    // File::create will also fail
     fs::remove_dir_all(&full_path).ok();
     let mut file = fs::File::create(&full_path).context("Opening/Creating download file")?;
 
