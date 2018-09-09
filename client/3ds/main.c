@@ -1,26 +1,26 @@
-#include <syncer.h>
 #include <config.h>
+#include <syncer.h>
 
+#include <arpa/inet.h>
 #include <dirent.h>
 #include <fcntl.h>
+#include <inttypes.h>
+#include <malloc.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <sys/socket.h>
 #include <unistd.h>
-#include <netdb.h>
-#include <stdint.h>
-#include <malloc.h>
-#include <inttypes.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 
 #include <3ds.h>
 
-#define SOC_ALIGN       0x1000
-#define SOC_BUFFERSIZE  0x100000
+#define SOC_ALIGN 0x1000
+#define SOC_BUFFERSIZE 0x100000
 
 static uint32_t *SOC_buffer = NULL;
 
@@ -36,11 +36,11 @@ char *base;
 char *name;
 
 void socShutdown(void);
+void apt_thread(void *);
 
 int main(void)
 {
 	int ret;
-
 	gfxInitDefault();
 
 	// register gfxExit to be run when app quits
@@ -49,12 +49,12 @@ int main(void)
 
 	consoleInit(GFX_TOP, NULL);
 
-	printf ("\nembsyncclient\n");
+	printf("\nembsyncclient\n");
 
 	// allocate buffer for SOC service
-	SOC_buffer = (uint32_t*)memalign(SOC_ALIGN, SOC_BUFFERSIZE);
+	SOC_buffer = (uint32_t *)memalign(SOC_ALIGN, SOC_BUFFERSIZE);
 
-	if(SOC_buffer == NULL) {
+	if (SOC_buffer == NULL) {
 		clbk_show_error("memalign: failed to allocate\n");
 	}
 
@@ -67,6 +67,9 @@ int main(void)
 	// register socShutdown to run at exit
 	// atexit functions execute in reverse order so this runs before gfxExit
 	atexit(socShutdown);
+
+	// Start apt thread, so we can exit
+	threadCreate(apt_thread, NULL, 0x1000, 0x30, -1, true);
 
 	if (config_parse("sdmc:/plybck.cfg") != 0) {
 		printf("Couldn't parse config\n");
@@ -81,13 +84,12 @@ int main(void)
 	if ((host = gethostbyname(server)) == NULL) {
 		clbk_show_error("Couldn't resove server");
 	}
-	int cret = connect(tcp_connection, (const struct sockaddr *)
-					   &((struct sockaddr_in){
-							   .sin_family = AF_INET,
-								   .sin_port = htons(PORT),
-								   .sin_addr.s_addr = *(long*)(
-									   host->h_addr)}),
-					   sizeof(struct sockaddr_in));
+	int cret = connect(tcp_connection,
+			   (const struct sockaddr *)&((struct sockaddr_in){
+			       .sin_family = AF_INET,
+			       .sin_port = htons(PORT),
+			       .sin_addr.s_addr = *(long *)(host->h_addr)}),
+			   sizeof(struct sockaddr_in));
 
 	if (tcp_connection == -1 || cret == -1)
 		clbk_show_error("Connect to server failed");
@@ -97,6 +99,13 @@ int main(void)
 	close(open_file);
 	shutdown(tcp_connection, SHUT_RDWR);
 	close(tcp_connection);
+}
+
+void apt_thread(void *data)
+{
+	while (aptMainLoop())
+		svcSleepThread(10000000);
+	exit(0);
 }
 
 // Implementation should open tcp connection befor calling syncer_run
@@ -111,17 +120,16 @@ uint32_t clbk_receive(uint8_t *data, uint32_t length)
 	return read(tcp_connection, data, length);
 }
 
-
 // Open file for reading, close previous
 int clbk_open(char *path)
 {
 	printf("Opening %s\n", path);
-	if(open_file != -1)
+	if (open_file != -1)
 		close(open_file);
 	open_file = open(path, O_RDONLY);
 	if (open_file == -1) {
 	}
-	return (open_file == -1)? open_file : 0;
+	return (open_file == -1) ? open_file : 0;
 }
 
 uint32_t clbk_read(uint8_t *data, uint32_t length)
@@ -140,8 +148,8 @@ void *clbk_open_dir(char *path)
 	struct dir_desc *dird = malloc(sizeof(struct dir_desc));
 	dird->dir = opendir(path);
 	dird->path = malloc(strlen(path) + 1);
-	memcpy(dird->path, path, strlen(path) + 1);;
-	return (dird->dir == NULL) ? NULL: dird;
+	memcpy(dird->path, path, strlen(path) + 1);
+	return (dird->dir == NULL) ? NULL : dird;
 }
 
 void clbk_close_dir(void *dird_void)
@@ -161,33 +169,31 @@ struct dir_entry *clbk_read_dir(void *dird_void)
 	if (dirret == NULL)
 		return NULL;
 	switch (dirret->d_type) {
-		case DT_REG:
-		{
-			dire.dir = false;
-			// The sdmc directory entry already has the size, so no need to do a stat
-			// Especially since stat doesn't contain the mtime
-			sdmc_dir_t *dir = (sdmc_dir_t *)dird->dir->dirData->dirStruct;
+	case DT_REG: {
+		dire.dir = false;
+		// The sdmc directory entry already has the size, so no need to
+		// do a stat, especially since stat doesn't contain the mtime
+		sdmc_dir_t *dir = (sdmc_dir_t *)dird->dir->dirData->dirStruct;
 
-			if(*(uint32_t *)dir != SDMC_DIRITER_MAGIC)
-				clbk_show_error("Dir doesn't have diriter?");
+		if (*(uint32_t *)dir != SDMC_DIRITER_MAGIC)
+			clbk_show_error("Dir doesn't have diriter?");
 
-			FS_DirectoryEntry *entry = &dir->entry_data[dir->index];
-			dire.size = entry->fileSize;
-			char name[strlen(dird->path) + strlen(dirret->d_name) + 1];
-			sprintf(name, "%s%s", dird->path, dirret->d_name);
-			if (sdmc_getmtime(name, &dire.mtime) != 0) {
-				clbk_show_status("Couldn't get mtime for");
-				clbk_show_error(name);
-			}
+		FS_DirectoryEntry *entry = &dir->entry_data[dir->index];
+		dire.size = entry->fileSize;
+		char name[strlen(dird->path) + strlen(dirret->d_name) + 1];
+		sprintf(name, "%s%s", dird->path, dirret->d_name);
+		if (sdmc_getmtime(name, &dire.mtime) != 0) {
+			clbk_show_status("Couldn't get mtime for");
+			clbk_show_error(name);
 		}
+	} break;
+	case DT_DIR:
+		dire.dir = true;
+		dire.size = 0;
+		dire.mtime = 0;
 		break;
-		case DT_DIR:
-			dire.dir = true;
-			dire.size = 0;
-			dire.mtime = 0;
-			break;
-		default:
-			clbk_show_error("Invalid file in dir\n");
+	default:
+		clbk_show_error("Invalid file in dir\n");
 	}
 	dire.name = dirret->d_name;
 	return &dire;
@@ -219,7 +225,8 @@ void clbk_show_error(char *msg)
 		hidScanInput();
 
 		u32 kDown = hidKeysDown();
-		if (kDown & KEY_B) exit(0);
+		if (kDown & KEY_B)
+			exit(0);
 	}
 }
 
@@ -247,7 +254,10 @@ void clbk_config_entry(char *key, char *val)
 	}
 }
 
-void socShutdown(void) {
-	printf("waiting for socExit...\n");
-	socExit();
+void socShutdown(void)
+{
+	if (open_file != -1)
+		close(open_file);
+	if (tcp_connection != -1)
+		close(tcp_connection);
 }
