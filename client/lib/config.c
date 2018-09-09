@@ -24,26 +24,24 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
-*/
+ */
 #include "config.h"
 
-#include <strings.h>
-#include "syncer.h"
 #include "constants.h"
+#include "syncer.h"
+#include <strings.h>
 
-char* skipnonws(char* text, char* end)
+char *skipnonws(char *text, char *end)
 {
-	while (text < end && *text != ' ' && *text != '\n' && *text != '\r')
-	{
+	while (text < end && *text != ' ' && *text != '\n' && *text != '\r') {
 		text++;
 	}
 	return text;
 }
 
-char* skipws(char* text, char* end)
+char *skipws(char *text, char *end)
 {
-	while (text < end && (*text == ' ' || *text == '\n' || *text == '\r'))
-	{
+	while (text < end && (*text == ' ' || *text == '\n' || *text == '\r')) {
 		text++;
 	}
 	return text;
@@ -62,14 +60,14 @@ int config_parse(char *file)
 	if (read_len == config_size)
 		// Too long
 		return -2;
-	LOG("Writing final newline at %i with maximum length %i\n", read_len, config_size);
+	LOG("Writing final newline at %i with maximum length %i\n", read_len,
+	    config_size);
 	buffer[read_len] = '\n';
 	LOG("Finding eof\n");
 	char *end = (char *)buffer + read_len + 1;
 
 	LOG("Parsing config\n");
-	while (text < end)
-	{
+	while (text < end) {
 		char *key = text;
 
 		text = skipnonws(text, end);

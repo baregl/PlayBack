@@ -1,8 +1,8 @@
 #ifndef __SYNCER_H_
 #define __SYNCER_H_
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdbool.h>
 
 #define DEBUG
 #ifdef DEBUG

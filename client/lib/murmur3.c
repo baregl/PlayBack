@@ -24,7 +24,7 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
-  */
+ */
 #include "murmur3.h"
 #include "syncer.h"
 
@@ -37,8 +37,8 @@ uint32_t murmur3_32(const void *data, uint32_t nbytes)
 	const uint32_t c2 = 0x1b873593;
 
 	const int nblocks = nbytes / 4;
-	const uint32_t *blocks = (const uint32_t *) (data);
-	const uint8_t *tail = (const uint8_t *) (data + (nblocks * 4));
+	const uint32_t *blocks = (const uint32_t *)(data);
+	const uint8_t *tail = (const uint8_t *)(data + (nblocks * 4));
 
 	uint32_t h = 0;
 
@@ -58,18 +58,18 @@ uint32_t murmur3_32(const void *data, uint32_t nbytes)
 
 	k = 0;
 	switch (nbytes & 3) {
-		case 3:
-			k ^= tail[2] << 16;
-			/* fall through */
-		case 2:
-			k ^= tail[1] << 8;
-			/* fall through */
-		case 1:
-			k ^= tail[0];
-			k *= c1;
-			k = (k << 15) | (k >> (32 - 15));
-			k *= c2;
-			h ^= k;
+	case 3:
+		k ^= tail[2] << 16;
+		/* fall through */
+	case 2:
+		k ^= tail[1] << 8;
+		/* fall through */
+	case 1:
+		k ^= tail[0];
+		k *= c1;
+		k = (k << 15) | (k >> (32 - 15));
+		k *= c2;
+		h ^= k;
 	};
 
 	h ^= nbytes;
@@ -95,7 +95,7 @@ uint32_t murmur3_32_step(uint32_t h, const void *data, uint32_t nbytes)
 	const uint32_t c2 = 0x1b873593;
 
 	const int nblocks = nbytes / 4;
-	const uint32_t *blocks = (const uint32_t *) (data);
+	const uint32_t *blocks = (const uint32_t *)(data);
 
 	int i;
 	uint32_t k;
@@ -111,23 +111,22 @@ uint32_t murmur3_32_step(uint32_t h, const void *data, uint32_t nbytes)
 		h = (h * 5) + 0xe6546b64;
 	}
 	return h;
-
 }
 
-uint32_t murmur3_32_finalize(uint32_t h, const void *data, uint32_t nbytes, uint32_t totalbytes)
+uint32_t murmur3_32_finalize(uint32_t h, const void *data, uint32_t nbytes,
+			     uint32_t totalbytes)
 {
 	if (data == NULL) {
 		LOG("Invalid data to finalize\n");
 		return -1;
-
 	}
 
 	const uint32_t c1 = 0xcc9e2d51;
 	const uint32_t c2 = 0x1b873593;
 
 	const int nblocks = nbytes / 4;
-	const uint32_t *blocks = (const uint32_t *) (data);
-	const uint8_t *tail = (const uint8_t *) (data + (nblocks * 4));
+	const uint32_t *blocks = (const uint32_t *)(data);
+	const uint8_t *tail = (const uint8_t *)(data + (nblocks * 4));
 
 	int i;
 	uint32_t k;
@@ -145,18 +144,18 @@ uint32_t murmur3_32_finalize(uint32_t h, const void *data, uint32_t nbytes, uint
 
 	k = 0;
 	switch (nbytes & 3) {
-		case 3:
-			k ^= tail[2] << 16;
-			/* fall through */
-		case 2:
-			k ^= tail[1] << 8;
-			/* fall through */
-		case 1:
-			k ^= tail[0];
-			k *= c1;
-			k = (k << 15) | (k >> (32 - 15));
-			k *= c2;
-			h ^= k;
+	case 3:
+		k ^= tail[2] << 16;
+		/* fall through */
+	case 2:
+		k ^= tail[1] << 8;
+		/* fall through */
+	case 1:
+		k ^= tail[0];
+		k *= c1;
+		k = (k << 15) | (k >> (32 - 15));
+		k *= c2;
+		h ^= k;
 	};
 
 	h ^= totalbytes;

@@ -1,16 +1,16 @@
-#include <syncer.h>
 #include <config.h>
+#include <syncer.h>
 
 #include <dirent.h>
 #include <fcntl.h>
+#include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <sys/socket.h>
 #include <unistd.h>
-#include <netdb.h>
 
 int tcp_connection = -1;
 int open_file = -1;
@@ -48,11 +48,13 @@ int main(int argc, char *argv[])
 
 	int cret = -1;
 	for (struct addrinfo *p = infoptr; p != NULL; p = p->ai_next) {
-		tcp_connection = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+		tcp_connection =
+		    socket(p->ai_family, p->ai_socktype, p->ai_protocol);
 		if (tcp_connection == -1) {
 			continue;
 		}
-		if ((cret = connect(tcp_connection, p->ai_addr, p->ai_addrlen)) < 0) {
+		if ((cret = connect(tcp_connection, p->ai_addr,
+				    p->ai_addrlen)) < 0) {
 			continue;
 		}
 		break;
@@ -78,17 +80,16 @@ uint32_t clbk_receive(uint8_t *data, uint32_t length)
 	return read(tcp_connection, data, length);
 }
 
-
 // Open file for reading, close previous
 int clbk_open(char *path)
 {
 	printf("Opening %s\n", path);
-	if(open_file != -1)
+	if (open_file != -1)
 		close(open_file);
 	open_file = open(path, O_RDONLY);
 	if (open_file == -1) {
 	}
-	return (open_file == -1)? open_file : 0;
+	return (open_file == -1) ? open_file : 0;
 }
 
 uint32_t clbk_read(uint8_t *data, uint32_t length)
@@ -107,8 +108,9 @@ void *clbk_open_dir(char *path)
 	struct dir_desc *dird = malloc(sizeof(struct dir_desc));
 	dird->dir = opendir(path);
 	dird->path = malloc(strlen(path) + 1);
-	memcpy(dird->path, path, strlen(path) + 1);;
-	return (dird->dir == NULL) ? NULL: dird;
+	memcpy(dird->path, path, strlen(path) + 1);
+	;
+	return (dird->dir == NULL) ? NULL : dird;
 }
 
 void clbk_close_dir(void *dird_void)
@@ -116,7 +118,7 @@ void clbk_close_dir(void *dird_void)
 	struct dir_desc *dird = (struct dir_desc *)dird_void;
 	closedir(dird->dir);
 	free(dird->path);
-		free(dird);
+	free(dird);
 }
 
 // allocate fodlre_entry statically
@@ -128,28 +130,26 @@ struct dir_entry *clbk_read_dir(void *dird_void)
 	if (dirret == NULL)
 		return NULL;
 	switch (dirret->d_type) {
-		case DT_REG:
-		{
-			dire.dir = false;
-			char name[strlen(dird->path) + strlen(dirret->d_name) + 2];
-			sprintf(name, "%s%s", dird->path, dirret->d_name);
-			struct stat statbuffer;
-			if (stat(name, &statbuffer) == -1) {
-				clbk_show_status("Couldn't stat ");
-				clbk_show_status(name);
-				clbk_show_error(" for readdir\n");
-			}
-			dire.size = statbuffer.st_size;
-			dire.mtime = statbuffer.st_mtime;
+	case DT_REG: {
+		dire.dir = false;
+		char name[strlen(dird->path) + strlen(dirret->d_name) + 2];
+		sprintf(name, "%s%s", dird->path, dirret->d_name);
+		struct stat statbuffer;
+		if (stat(name, &statbuffer) == -1) {
+			clbk_show_status("Couldn't stat ");
+			clbk_show_status(name);
+			clbk_show_error(" for readdir\n");
 		}
+		dire.size = statbuffer.st_size;
+		dire.mtime = statbuffer.st_mtime;
+	} break;
+	case DT_DIR:
+		dire.dir = true;
+		dire.size = 0;
+		dire.mtime = 0;
 		break;
-		case DT_DIR:
-			dire.dir = true;
-			dire.size = 0;
-			dire.mtime = 0;
-			break;
-		default:
-			clbk_show_error("Invalid file in dir\n");
+	default:
+		clbk_show_error("Invalid file in dir\n");
 	}
 	dire.name = dirret->d_name;
 	return &dire;

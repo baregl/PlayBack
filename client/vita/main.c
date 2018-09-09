@@ -1,34 +1,34 @@
 // TODO Implement logging over network
 #include "debugScreen.h"
 
-#include <psp2/sysmodule.h>
-#include <psp2/kernel/threadmgr.h>
-#include <psp2/kernel/processmgr.h>
-#include <psp2/display.h>
 #include <psp2/ctrl.h>
+#include <psp2/display.h>
+#include <psp2/io/stat.h>
+#include <psp2/kernel/processmgr.h>
+#include <psp2/kernel/threadmgr.h>
 #include <psp2/net/net.h>
 #include <psp2/net/netctl.h>
-#include <psp2/io/stat.h>
 #include <psp2/rtc.h>
+#include <psp2/sysmodule.h>
 
 #define printf psvDebugScreenPrintf
 
-#include <syncer.h>
 #include <config.h>
+#include <syncer.h>
 
 #include <dirent.h>
 #include <fcntl.h>
+#include <inttypes.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <sys/socket.h>
 #include <unistd.h>
-#include <netdb.h>
-#include <stdint.h>
-#include <inttypes.h>
-#include <netinet/in.h>
 
 int tcp_connection = -1;
 int open_file = -1;
@@ -52,7 +52,7 @@ int main(void)
 	if (server == NULL || pass == NULL || base == NULL || name == NULL) {
 		printf("Missing config parameters\n");
 	}
-	static char net_mem[1*1024*1024];
+	static char net_mem[1 * 1024 * 1024];
 	sceSysmoduleLoadModule(SCE_SYSMODULE_NET);
 	sceNetInit(&(SceNetInitParam){net_mem, sizeof(net_mem), 0});
 	tcp_connection = socket(PF_INET, SOCK_STREAM, 0);
@@ -60,13 +60,12 @@ int main(void)
 	if ((host = gethostbyname(server)) == NULL) {
 		clbk_show_error("Couldn't resove server");
 	}
-	int cret = connect(tcp_connection, (const struct sockaddr *)
-					   &((struct sockaddr_in){
-							   .sin_family = AF_INET,
-								   .sin_port = htons(PORT),
-								   .sin_addr.s_addr = *(long*)(
-									   host->h_addr)}),
-					   sizeof(struct sockaddr_in));
+	int cret = connect(tcp_connection,
+			   (const struct sockaddr *)&((struct sockaddr_in){
+			       .sin_family = AF_INET,
+			       .sin_port = htons(PORT),
+			       .sin_addr.s_addr = *(long *)(host->h_addr)}),
+			   sizeof(struct sockaddr_in));
 
 	if (tcp_connection == -1 || cret == -1)
 		clbk_show_error("Connect to server failed");
@@ -92,17 +91,16 @@ uint32_t clbk_receive(uint8_t *data, uint32_t length)
 	return read(tcp_connection, data, length);
 }
 
-
 // Open file for reading, close previous
 int clbk_open(char *path)
 {
 	printf("Opening %s\n", path);
-	if(open_file != -1)
+	if (open_file != -1)
 		close(open_file);
 	open_file = open(path, O_RDONLY);
 	if (open_file == -1) {
 	}
-	return (open_file == -1)? open_file : 0;
+	return (open_file == -1) ? open_file : 0;
 }
 
 uint32_t clbk_read(uint8_t *data, uint32_t length)
@@ -121,8 +119,9 @@ void *clbk_open_dir(char *path)
 	struct dir_desc *dird = malloc(sizeof(struct dir_desc));
 	dird->dir = opendir(path);
 	dird->path = malloc(strlen(path) + 1);
-	memcpy(dird->path, path, strlen(path) + 1);;
-	return (dird->dir == NULL) ? NULL: dird;
+	memcpy(dird->path, path, strlen(path) + 1);
+	;
+	return (dird->dir == NULL) ? NULL : dird;
 }
 
 void clbk_close_dir(void *dird_void)
