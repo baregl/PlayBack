@@ -28,6 +28,9 @@ BUILD		:=	build
 SOURCES	:=	. ../lib
 DATA		:=	data
 INCLUDES	:=	include ../lib
+APP_TITLE   := PlayBack 3DS
+APP_DESCRIPTION := A Backup Solution for consoles
+APP_AUTHOR := baregl
 #ROMFS		:=	romfs
 
 #---------------------------------------------------------------------------------
