@@ -12,7 +12,7 @@ pub const TRANSFER_SIZE: u32 = 8192;
 pub const CONFIG_SIZE: u32 = 2048;
 pub const REQUEST_SIZE: u32 = 257;
 // This needs to be a multiple of 4 for the hash
-pub const READ_SIZE: u32 = 1048576;
+pub const READ_SIZE: u32 = 1_048_576;
 
 fn parse_limited(input: &[u8], size: usize) -> nom::IResult<&[u8], Vec<u8>> {
     if input.len() < size {

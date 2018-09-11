@@ -16,7 +16,7 @@ fn main() {
     match run::run(opt) {
         Ok(()) => exit(0),
         Err(e) => {
-            logs::report(e);
+            logs::report(&e);
             exit(1);
         }
     }

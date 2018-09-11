@@ -6,7 +6,7 @@ pub fn init(verbosity: u8) -> Result<(), SetLoggerError> {
     SimpleLogger::init(getlvl(verbosity), Config::default())
 }
 
-pub fn report(error: Error) {
+pub fn report(error: &Error) {
     error!("{}", error);
     for e in error.iter_chain().skip(1) {
         error!("Caused By: {}", e);

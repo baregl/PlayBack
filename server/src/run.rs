@@ -38,7 +38,7 @@ pub fn run(opt: opt::Opt) -> Result<(), Error> {
         let map = sync::Arc::clone(&map);
         thread::spawn(move || {
             let stream = stream.unwrap();
-            sync_process(stream, &map).map_err(|e| logs::report(e)).ok();
+            sync_process(stream, &map).map_err(|e| logs::report(&e)).ok();
         });
         // Just some very basic bruteforce protection
         // It should take about 60 Years to guess a password hash
@@ -76,12 +76,8 @@ fn sync_process(
             missing_files.push(entry);
         } else {
             let mut full_path = get_full_path(&base_dir, &entry.path)?;
-            let attr =
-                fs::metadata(&full_path).context("Opening checksummed file for mtime adjustments")?;
-            let mtime = FileTime::from_unix_time(entry.mtime as i64, 0);
-            let atime = FileTime::from_last_access_time(&attr);
-            filetime::set_file_times(full_path, atime, mtime)
-                .context("Setting mtime for checksummed file")?;
+            set_file_mtime(&full_path, entry.mtime as i64)
+                .context("Adjusting mtime for checksummed file")?;
         }
     }
 
@@ -90,7 +86,7 @@ fn sync_process(
             .context(format!("Downloading File {}", entry.path.display()))?;
     }
     let mut header = [0; parse::REQUEST_SIZE as usize];
-    header[0] = 'e' as u8;
+    header[0] = b'e';
     stream
         .write(&header)
         .context("Writing final download header")?;
@@ -181,10 +177,8 @@ fn add_dir_entry(
             } else {
                 map.insert(component.to_os_string(), MapEntry::File);
             }
-        } else {
-            if !map.contains_key(component) {
+        } else if !map.contains_key(component) {
                 map.insert(component.to_os_string(), MapEntry::Dir(HashMap::new()));
-            }
         },
         Some(next) => {
             if !map.contains_key(component) {
@@ -216,7 +210,7 @@ enum FileState {
 fn check_existing(base: &path::Path, entry: &parse::Entry) -> Result<FileState, failure::Error> {
     let full_path = get_full_path(base, &entry.path)?;
     if let Ok(attr) = fs::metadata(&full_path) {
-        if attr.len() == (entry.size as u64) {
+        if attr.len() == u64::from(entry.size) {
             let mtime = FileTime::from_last_modification_time(&attr).unix_seconds() as u64;
             if mtime == entry.mtime {
                 Ok(FileState::Matches)
@@ -237,7 +231,7 @@ fn check_file_checksum(
     entry: &parse::Entry,
 ) -> Result<bool, failure::Error> {
     let mut header = [0; parse::REQUEST_SIZE as usize];
-    header[0] = 'h' as u8;
+    header[0] = b'h';
     for (num, entry) in entry.path.as_os_str().as_bytes().iter().enumerate() {
         if num == 256 {
             bail!("File path too long, should have been checked");
@@ -259,7 +253,7 @@ fn check_file_checksum(
     loop {
         let consumed = {
             let bytes = file.fill_buf()?;
-            if bytes.len() == 0 {
+            if bytes.is_empty() {
                 break;
             }
             hasher.write(bytes);
@@ -285,7 +279,7 @@ fn download_file(
     entry: &parse::Entry,
 ) -> Result<(), failure::Error> {
     let mut header = [0; parse::REQUEST_SIZE as usize];
-    header[0] = 'f' as u8;
+    header[0] = b'f';
     for (num, entry) in entry.path.as_os_str().as_bytes().iter().enumerate() {
         if num == 256 {
             bail!("File path too long, should have been checked");
@@ -359,10 +353,15 @@ fn download_file(
         );
     }
 
-    let attr = fs::metadata(&full_path).context("Opening file for mtime adjustmets")?;
-    let mtime = FileTime::from_unix_time(entry.mtime as i64, 0);
+    set_file_mtime(&full_path, entry.mtime as i64).context("Adjusting mtime for downloaded file")?;
+    Ok(())
+}
+
+fn set_file_mtime(path: &path::Path, mtime: i64) -> Result<(), failure::Error> {
+    let attr = fs::metadata(path).context("Opening file for mtime adjustmets")?;
+    let mtime = FileTime::from_unix_time(mtime as i64, 0);
     let atime = FileTime::from_last_access_time(&attr);
-    filetime::set_file_times(&full_path, atime, mtime).context("Setting mtime")?;
+    filetime::set_file_times(path, atime, mtime).context("Setting mtime")?;
     Ok(())
 }
 
