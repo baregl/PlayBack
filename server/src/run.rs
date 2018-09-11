@@ -21,6 +21,7 @@ use std::path;
 use std::result::Result;
 use std::sync;
 use std::thread;
+use std::time::Duration;
 use toml;
 
 pub fn run(opt: opt::Opt) -> Result<(), Error> {
@@ -39,6 +40,9 @@ pub fn run(opt: opt::Opt) -> Result<(), Error> {
             let stream = stream.unwrap();
             sync_process(stream, &map).map_err(|e| logs::report(e)).ok();
         });
+        // Just some very basic bruteforce protection
+        // It should take about 60 Years to guess a password hash
+        thread::sleep(Duration::from_secs(1));
     }
     Ok(())
 }
