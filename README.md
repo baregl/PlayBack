@@ -48,14 +48,13 @@ You can only change or upload new files to the server, not read existing ones.
 ## License
 Everything is licensed under AGPL, found in the LICENSE file, except files
 with their own copyright header.
+## Known Issues
+- The 3DS client takes really long for directories with lots of files. This
+  seems to be an inherent limitation of the 3ds.
+- The 3DS client handling of the home menu/power menu still has some issues
 ## TODO
 - Add server support support to server and implementations (lib doesn't care)
 - Do proper receiving on client side, currently relying on read being filled
-- 3DS
-  - It's amazingly slow, maybe use more native apis?
-    - Especially the initial transfer
-  - Handle timeout
-  - Add a way to exit mid-transfer
 - Vita
   - Disable Sleep mode
   - Disable Home Button
