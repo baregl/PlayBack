@@ -44,6 +44,8 @@ void clbk_show_error(char *msg);
 void clbk_show_status(char *status);
 
 // When returning, close the open file & TCP connection
-void syncer_run(char *dir, char *devname, char *devid, char *ver, char *passwd);
+// Dirs array ends with a NULL pointer
+void syncer_run(char *dirs[], char *devname, char *devid, char *ver,
+		char *passwd);
 
 #endif // __SYNCER_H_

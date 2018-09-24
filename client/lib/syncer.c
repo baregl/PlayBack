@@ -2,6 +2,7 @@
 
 #include "constants.h"
 #include "murmur3.h"
+#include <stdlib.h>
 #include <string.h>
 
 #define bytiffy_uint32(dest, value)                                            \
@@ -13,15 +14,18 @@
 void add_entry(uint8_t *entry);
 void send_header(char *passwd, char *devname, char *devid, char *ver);
 void send_dir(char *dir);
-void handle_transfer(uint8_t *transfer_req, char *base_dir);
+void handle_transfer(uint8_t *transfer_req, char **base_dirs);
+bool check_in_base_dirs(char *dir, char **base_dirs);
 
-void syncer_run(char *dir, char *devname, char *devid, char *ver, char *passwd)
+void syncer_run(char **dirs, char *devname, char *devid, char *ver,
+		char *passwd)
 {
 	// TODO Handle dir ending without '/'
 	send_header(passwd, devname, devid, ver);
 	LOG("Sending entries\n");
 	clbk_show_status("Sending entries\n");
-	send_dir(dir);
+	for (int i = 0; dirs[i] != NULL; i++)
+		send_dir(dirs[i]);
 	LOG("Sending end of entries\n");
 	uint8_t entry[entry_size] = {};
 	// Iterate over directory
@@ -39,7 +43,7 @@ void syncer_run(char *dir, char *devname, char *devid, char *ver, char *passwd)
 					"connection interrupted");
 		}
 		LOG("Received request\n");
-		handle_transfer(transfer_req, dir);
+		handle_transfer(transfer_req, dirs);
 	} while (transfer_req[0] != 'e');
 	clbk_show_status("Done\n");
 }
@@ -122,11 +126,11 @@ void send_dir(char *dir)
 	clbk_close_dir(dird);
 }
 
-void handle_transfer(uint8_t *transfer_req, char *base_dir)
+void handle_transfer(uint8_t *transfer_req, char *base_dirs[])
 {
 	if (transfer_req[0] == 'f' || transfer_req[0] == 'h') {
-		if (strncmp((char *)transfer_req + 1, base_dir,
-			    strlen(base_dir)) != 0)
+		if (check_in_base_dirs((char *)transfer_req + 1, base_dirs) ==
+		    false)
 			clbk_show_error("File not within base dir");
 		// Just so this isn't stack allocated
 		static uint8_t transfer_buffer[transfer_size];
@@ -166,4 +170,12 @@ void handle_transfer(uint8_t *transfer_req, char *base_dir)
 		clbk_send(transfer_buffer, 4);
 		LOG("Sent checksum %lx\n", h);
 	}
+}
+
+bool check_in_base_dirs(char *dir, char **base_dirs)
+{
+	for (int i = 0; base_dirs[i] != NULL; i++)
+		if (strcmp((char *)dir, base_dirs[i]) == 0)
+			return true;
+	return false;
 }

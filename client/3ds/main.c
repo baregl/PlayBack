@@ -32,11 +32,13 @@ int open_file = -1;
 static const int PORT = 9483;
 char *server;
 char *pass;
-char *base;
 char *name;
+char **dirs = NULL;
+int dirs_len = 0;
 
 void socShutdown(void);
 void apt_thread(void *);
+void add_dir(char *dir, char ***dirs, int *dirs_len);
 
 int main(void)
 {
@@ -75,7 +77,7 @@ int main(void)
 		printf("Couldn't parse config\n");
 		exit(-1);
 	}
-	if (server == NULL || pass == NULL || base == NULL || name == NULL) {
+	if (server == NULL || pass == NULL || dirs == NULL || name == NULL) {
 		printf("Missing config parameters\n");
 	}
 	LOG("Opening TCP Connection\n");
@@ -94,7 +96,7 @@ int main(void)
 	if (tcp_connection == -1 || cret == -1)
 		clbk_show_error("Connect to server failed");
 	LOG("Starting sync\n");
-	syncer_run(base, "3ds", name, "0.1", pass);
+	syncer_run(dirs, "3ds", name, "0.1", pass);
 
 	close(open_file);
 	shutdown(tcp_connection, SHUT_RDWR);
@@ -241,7 +243,7 @@ void clbk_config_entry(char *key, char *val)
 	char *data = malloc(len);
 	memcpy(data, val, len);
 	if (strcmp("base", key) == 0)
-		base = data;
+		add_dir(data, &dirs, &dirs_len);
 	else if (strcmp("pass", key) == 0)
 		pass = data;
 	else if (strcmp("name", key) == 0)
@@ -260,4 +262,11 @@ void socShutdown(void)
 		close(open_file);
 	if (tcp_connection != -1)
 		close(tcp_connection);
+}
+
+void add_dir(char *dir, char ***dirs, int *dirs_len)
+{
+	dirs = reallocarray(dirs, *dirs_len + 2, sizeof(**dirs));
+	*dirs[(*dirs_len)++] = dir;
+	*dirs[*dirs_len] = 0;
 }

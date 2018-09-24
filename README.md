@@ -53,8 +53,8 @@ with their own copyright header.
   seems to be an inherent limitation of the 3ds.
 - The 3DS client handling of the home menu/power menu still has some issues
 ## TODO
-- Add server support support to server and implementations (lib doesn't care)
-- Do proper receiving on client side, currently relying on read being filled
+- Add ssl support support to server and implementations (lib doesn't care)
+- Do proper receiving on client side, currently relying on read being filled (Implementation)
 - Vita
   - Disable Sleep mode
   - Disable Home Button
@@ -63,12 +63,11 @@ with their own copyright header.
   - Transparently or just dumping all of them into a seperate directory before
     syncing? Use decrypted file times when dumping
   - Also sdmc:/Nintendo 3DS/*/title
-- Add support for multiple sync directories.
-  (For example on vita, so ur0 & ux0 can be synced, without the other partitions)
 - Ideas for ports
   - Wii/Wii U/Switch
   - PS2
-    - Only memory cards? Memory cards & HDD? Only HDD, assuming that everyone uses OPL? Even USB?
+    - Only memory cards? Memory cards & HDD? Only HDD, assuming that everyone
+      uses OPL for memory card saves? Even USB?
   - PS3/PS4
   - XBox (nxdk)/XBox 360
     - Xbox One doesn't yet have a homebrew scene
