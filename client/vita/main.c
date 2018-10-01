@@ -191,7 +191,7 @@ void clbk_config_entry(char *key, char *val)
 	int len = strlen(val) + 1;
 	char *data = malloc(len);
 	memcpy(data, val, len);
-	if (strcmp("base", key) == 0)
+	if (strcmp("dir", key) == 0)
 		add_dir(data, &dirs, &dirs_len);
 	else if (strcmp("pass", key) == 0)
 		pass = data;
