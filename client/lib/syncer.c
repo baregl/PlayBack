@@ -130,8 +130,10 @@ void handle_transfer(uint8_t *transfer_req, char *base_dirs[])
 {
 	if (transfer_req[0] == 'f' || transfer_req[0] == 'h') {
 		if (check_in_base_dirs((char *)transfer_req + 1, base_dirs) ==
-		    false)
-			clbk_show_error("File not within base dir");
+		    false) {
+			clbk_show_status((char *)transfer_req + 1);
+			clbk_show_error(" not within base dir");
+		}
 		// Just so this isn't stack allocated
 		static uint8_t transfer_buffer[transfer_size];
 		uint32_t size = clbk_file_size((char *)transfer_req + 1);
@@ -175,7 +177,8 @@ void handle_transfer(uint8_t *transfer_req, char *base_dirs[])
 bool check_in_base_dirs(char *dir, char **base_dirs)
 {
 	for (int i = 0; base_dirs[i] != NULL; i++)
-		if (strcmp((char *)dir, base_dirs[i]) == 0)
+		if (strncmp((char *)dir, base_dirs[i], strlen(base_dirs[i])) ==
+		    0)
 			return true;
 	return false;
 }

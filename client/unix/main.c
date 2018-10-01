@@ -204,7 +204,7 @@ void clbk_config_entry(char *key, char *val)
 
 void add_dir(char *dir, char ***dirs, int *dirs_len)
 {
-	dirs = realloc(dirs, *dirs_len + 2 * sizeof(**dirs));
-	*dirs[(*dirs_len)++] = dir;
-	*dirs[*dirs_len] = 0;
+	*dirs = realloc(*dirs, (*dirs_len + 2) * sizeof(**dirs));
+	(*dirs)[(*dirs_len)++] = dir;
+	(*dirs)[*dirs_len] = 0;
 }
