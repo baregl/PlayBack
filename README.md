@@ -4,8 +4,7 @@ If you're adventurous, you can try it, but please make sure:
 1. That there are no sensitive files containing account data or something
    similar on your console
 2. That you run the server under a user with minimal access to anything/in a
-   vm/in a container, so that attackers that may be able to override files will
-   not be able to do much harm
+   vm/in a container, so that attackers that may be able to override files won't do much harm
 ## Intro
 You should regularly make backups. For Everything. But for hacked consoles it
 isn't always that easy. In lots of cases (Vita, Original XBox, PS2), their files
@@ -19,6 +18,7 @@ Available Clients:
 - Linux client as a reference
 - Vita client
 - 3DS client
+
 Available Servers:
 - Reference server, Rust based (Unix, may have serious path traversal bugs on
   Windows or similar things)
