@@ -5,7 +5,7 @@ If you're adventurous, you can try it, but please make sure:
    similar on your console
 2. That you run the server under a user with minimal access to anything/in a
    vm/in a container, so that attackers that may be able to override files won't do much harm
-## Intro
+## Description
 You should regularly make backups. For Everything. But for hacked consoles it
 isn't always that easy. In lots of cases (Vita, Original XBox, PS2), their files
 are basically only available via FTP, which can be slow and has to be driven by
@@ -27,6 +27,36 @@ It works over a non-encrypted TCP connection to Port 9483. Your password is
 hashed, but if you're on an untrustworthy network, all your files can be leaked.
 You can only change or upload new files to the server, not read existing ones.
 
+## Q&A
+1. The initial sync is really slow, can't you speed it up?
+
+  Most game consoles seem to have very network interfaces. You may try to copy
+  all the files manually, so the first sync doesn't have to send all the files
+2. The 3ds client is absurdly slow, how can this be?
+
+  If you have a directory with lots of files in it, certain operations
+  slow down significantly. This seems to be an inherent limitation of the 3ds.
+3. Why doesn't it work on Windows?
+
+  Because secure path handling & conserving encoding seem to be really hard on
+  Windows and I don't use/care about Windows. You're welcome to open a PR. Maybe
+  just use a Raspberry Pi for the always-on server.
+4. Why not just use FTP/rsync/webdav/syncthing/...?
+
+  Because they either require a lot of client state, which for some consoles
+  like the DS, with only 4MB of ram, may not be feasible or are undocumented.
+  Here the client state is mostly limited to the file that is currently synced.
+5. Why no 2-way sync? Only paths with 256 characters? No encryption? Is this the 90s?
+
+  Maybe in the future
+6. My favourite console, the Game.com, isn't supported. What should I do?
+
+  I'll try to implement support for some more common consoles, but if you don't
+  want to wait, try implementing it yourself.
+7. So where do I get the password from? Should I just use my email password?
+
+  No, don't use anything you can remember. Just generate a random password. If
+  you have no idea how to do that, use [this](https://ddg.co/?q=random%20password).
 ## Based on
 - Clientlib
   - PKGJ for the config parser by Philippe Daouadi (BSD 2-Clause)
