@@ -31,9 +31,11 @@
 #include <unistd.h>
 
 void add_dir(char *dir, char ***dirs, int *dirs_len);
+static int power_thread(SceSize args, void *argp);
 
 int tcp_connection = -1;
 int open_file = -1;
+static volatile int g_power_lock;
 
 static const int PORT = 9483;
 char *server;
@@ -44,6 +46,13 @@ int dirs_len = 0;
 
 int main(void)
 {
+	g_power_lock = 1;
+	SceUID power_thread_uid = sceKernelCreateThread(
+	    "power_thread", &power_thread, 0x10000100, 0x40000, 0, 0, NULL);
+	if (power_thread >= 0) {
+		sceKernelStartThread(power_thread_uid, 0, NULL);
+	}
+
 	psvDebugScreenInit();
 	psvDebugScreenClear(0);
 
@@ -73,14 +82,28 @@ int main(void)
 		clbk_show_error("Connect to server failed");
 	LOG("Starting sync\n");
 	syncer_run(dirs, "vita", name, "0.1", pass);
-
 	close(open_file);
 	close(tcp_connection);
 	sceNetTerm();
 	sceSysmoduleUnloadModule(SCE_SYSMODULE_NET);
+	g_power_lock = 0;
 	sceKernelDelayThread(~0);
 }
 
+static int power_thread(SceSize args, void *argp)
+{
+	for (;;) {
+		int lock;
+		__atomic_load(&g_power_lock, &lock, __ATOMIC_SEQ_CST);
+		if (lock > 0) {
+			sceKernelPowerTick(
+			    SCE_KERNEL_POWER_TICK_DISABLE_AUTO_SUSPEND);
+		}
+
+		sceKernelDelayThread(10 * 1000 * 1000);
+	}
+	return 0;
+}
 // Implementation should open tcp connection befor calling syncer_run
 // If connection is closed prematurely, display error
 void clbk_send(uint8_t *data, uint32_t length)
@@ -177,6 +200,7 @@ void clbk_show_error(char *msg)
 		close(tcp_connection);
 	sceNetTerm();
 	sceSysmoduleUnloadModule(SCE_SYSMODULE_NET);
+	g_power_lock = 0;
 	sceKernelDelayThread(~0);
 	exit(1);
 }
