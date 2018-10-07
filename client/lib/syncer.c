@@ -79,8 +79,12 @@ void send_dir(char *dir)
 	LOG("Opening %s\n", dir);
 	void *dird = clbk_open_dir(dir);
 	if (dird == NULL) {
-		clbk_show_status("Couldn't open dir");
-		clbk_show_error(dir);
+		// Sometimes happens
+		// Particularly on vita, the ux0:/MUSIC dir can't be opened
+		clbk_show_status("Couldn't open dir ");
+		clbk_show_status(dir);
+		clbk_show_status(". Skipping it.");
+		return;
 	}
 	struct dir_entry *dentry;
 	while ((dentry = clbk_read_dir(dird)) != NULL) {

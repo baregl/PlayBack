@@ -17,6 +17,7 @@
 #include <syncer.h>
 
 #include <dirent.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
 #include <netdb.h>
@@ -145,8 +146,12 @@ void *clbk_open_dir(char *path)
 	dird->dir = opendir(path);
 	dird->path = malloc(strlen(path) + 1);
 	memcpy(dird->path, path, strlen(path) + 1);
-	;
-	return (dird->dir == NULL) ? NULL : dird;
+	if (dird->dir == NULL) {
+		free(dird);
+		printf("Failed to open %s with error code %x\n", path, errno);
+		return NULL;
+	}
+	return dird;
 }
 
 void clbk_close_dir(void *dird_void)
