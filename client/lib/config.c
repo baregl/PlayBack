@@ -31,17 +31,33 @@
 #include "syncer.h"
 #include <strings.h>
 
-char *skipnonws(char *text, char *end)
+char *skipnons(char *text, char *end)
 {
-	while (text < end && *text != ' ' && *text != '\n' && *text != '\r') {
+	while (text < end && *text != ' ') {
 		text++;
 	}
 	return text;
 }
 
-char *skipws(char *text, char *end)
+char *skipnonnr(char *text, char *end)
 {
-	while (text < end && (*text == ' ' || *text == '\n' || *text == '\r')) {
+	while (text < end && *text != '\n' && *text != '\r') {
+		text++;
+	}
+	return text;
+}
+
+char *skips(char *text, char *end)
+{
+	while (text < end && (*text == ' ')) {
+		text++;
+	}
+	return text;
+}
+
+char *skipnr(char *text, char *end)
+{
+	while (text < end && (*text == '\n' || *text == '\r')) {
 		text++;
 	}
 	return text;
@@ -70,19 +86,19 @@ int config_parse(char *file)
 	while (text < end) {
 		char *key = text;
 
-		text = skipnonws(text, end);
+		text = skipnons(text, end);
 		if (text == end)
 			return -1;
 
 		*text++ = 0;
 
-		text = skipws(text, end);
+		text = skips(text, end);
 		if (text == end)
 			return -1;
 
 		char *value = text;
 
-		text = skipnonws(text, end);
+		text = skipnonnr(text, end);
 
 		*text++ = 0;
 		clbk_config_entry(key, value);
@@ -90,7 +106,7 @@ int config_parse(char *file)
 			break;
 		}
 
-		text = skipws(text, end);
+		text = skipnr(text, end);
 	}
 	return 0;
 }
