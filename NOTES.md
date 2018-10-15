@@ -3,8 +3,6 @@
 - Add ssl support support to implementations (lib doesn't care)
   - Use something like nginx ssl termination for the server, so the
     server doesn't have to handle certificates and all the entailing complications
-- Vita
-  - Disable Sleep mode
 - Logging for server
 - Save decryption & similar things
   - Transparently or just dumping all of them into a seperate directory before
