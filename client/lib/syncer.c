@@ -2,6 +2,7 @@
 
 #include "constants.h"
 #include "murmur3.h"
+#include "tweetnacl.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -59,17 +60,15 @@ void add_entry(uint8_t *entry)
 void send_header(char *passwd, char *devname, char *devid, char *ver)
 {
 	LOG("Assembling header\n");
-	uint32_t pass = murmur3_32(passwd, strlen(passwd));
+	unsigned char h[crypto_hash_BYTES];
+	crypto_hash(h, passwd, strlen(passwd));
 	uint8_t data[header_size] = {'P', 'L', 'Y', 'S', 'Y', 'N', 'C', '1'};
 	strncpy((char *)data + 8, devname, 8);
 	strncpy((char *)data + 16, devid, 8);
 	strncpy((char *)data + 24, ver, 8);
-	data[32] = pass & 0xFF;
-	data[33] = (pass >> 8) & 0xFF;
-	data[34] = (pass >> 16) & 0xFF;
-	data[35] = (pass >> 24) & 0xFF;
 	LOG("Sending header\n");
 	clbk_send(data, sizeof(data));
+	clbk_send(h, crypto_hash_BYTES);
 }
 void send_dir(char *dir)
 {

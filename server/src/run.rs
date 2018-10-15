@@ -6,8 +6,8 @@ use failure;
 use failure::ResultExt;
 use filetime;
 use filetime::FileTime;
-use murmur3;
 use murmur3::murmur3_32::MurmurHasher;
+use sodiumoxide::crypto::hash;
 use std::collections::HashMap;
 use std::ffi;
 use std::fs;
@@ -59,7 +59,8 @@ fn sync_process(
         .map_err(|err| format_err!("Failed to parse header: {}", err))?
         .1;
     let base_dir = if let Some(device) = devices.get(&header.id) {
-        if murmur3::murmur3_32(&mut io::Cursor::new(&device.pass), 0) == header.pass {
+        let pass = hash::hash(&device.pass.as_bytes());
+        if pass.as_ref() == header.pass {
             path::PathBuf::from(&device.dir)
         } else {
             bail!("Device {} has wrong pass", header.id);

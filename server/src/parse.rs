@@ -4,7 +4,7 @@ use std::ffi::OsString;
 use std::os::unix::ffi::OsStringExt;
 use std::path::PathBuf;
 
-pub const HEADER_SIZE: u32 = 36;
+pub const HEADER_SIZE: u32 = 96;
 pub const ENTRY_SIZE: u32 = 272;
 pub const QUEUE_MAX_DEPTH: u32 = 64;
 pub const TRANSFER_REQ_SIZE: u32 = 257;
@@ -59,29 +59,29 @@ fn parse_limited_path_buf(input: &[u8], size: usize) -> nom::IResult<&[u8], Path
 }
 
 #[derive(PartialEq, Debug)]
-pub struct Header {
+pub struct Header<'a> {
     pub name: String,
     pub id: String,
     pub version: String,
-    pub pass: u32,
+    pub pass: &'a [u8],
 }
 
-impl Header {
-    named!(
-        pub parse<Self>,
-        do_parse!(
+impl<'a> Header<'a> {
+    pub fn parse(i: &'a [u8]) -> nom::IResult<&'a [u8], Self> {
+        do_parse!(i,
             tag!("PLYSYNC1")
                 >> name: apply!(parse_limited_string, 8)
                 >> id: apply!(parse_limited_string, 8)
                 >> version: apply!(parse_limited_string, 8)
-                >> pass: le_u32 >> (Header {
+                >> pass: take!(64) >>
+                (Header {
                     name,
                     id,
                     version,
                     pass,
                 })
         )
-    );
+    }
 }
 
 #[derive(PartialEq, Debug)]

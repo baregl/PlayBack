@@ -3,7 +3,8 @@
 
 // Hack for array size
 enum constants {
-	header_size = 36,
+	// hash is seperate
+	header_size = 32,
 	entry_size = 272,
 	queue_max_depth = 64,
 	transfer_req_size = 257,

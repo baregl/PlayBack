@@ -74,7 +74,8 @@ You can only change or upload new files to the server, not read existing ones.
 ## Based on
 - Clientlib
   - PKGJ for the config parser by Philippe Daouadi (BSD 2-Clause)
-  - Murmur3 by Austin Appleby from qLibc ported by Seungyoung Kim (BSD 2-Clause)
+  - Murmur3 for file hash by Austin Appleby from qLibc ported by Seungyoung Kim (BSD 2-Clause)
+  - Tweetnacl for cryptographic functions by djb and others (public domain)
 - Vita client
   - Vitasdk by vitasdk (MIT/GPLv3)
 - 3ds client
@@ -91,6 +92,7 @@ You can only change or upload new files to the server, not read existing ones.
     - Filetime by Alex Crichton (MIT/Apache-2.0)
     - Toml by Alex Crichton (MIT/Apache-2.0)
     - Serve by David Tolnay & Erick Tryzelaar (MIT/Apache-2.0)
+    - Sodiumoxide by Daniel Ashhami & Frank Denis (MIT/Apache-2.0)
 ## License
 Everything is licensed under AGPL, found in the LICENSE file, except files
 with their own copyright header.

@@ -22,7 +22,7 @@
 ## Protocol
 - Port 9483 with TCP
 - Little Endian
-### Begin Session (36)
+### Begin Session (96)
 - Magic string "PLYSYNC1" (8)
 - Device name (8)
 
@@ -44,9 +44,9 @@
   - Example: "0.1.3\0\0\0"
   - Valid characters: ```[0-9].```
 
-- Password (4)
+- Password (64)
 
-  - Murmur3 hash of the password
+  - sha512 hash of the password
 
 ### File Listing (272)
 - Type (1)

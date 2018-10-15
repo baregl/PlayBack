@@ -15,6 +15,7 @@ extern crate toml;
 extern crate serde_derive;
 #[macro_use]
 extern crate nom;
+extern crate sodiumoxide;
 
 pub mod config;
 pub mod logs;
