@@ -38,6 +38,8 @@ void clbk_close_dir(void *dird);
 // return null for last entry
 struct dir_entry *clbk_read_dir(void *dird);
 uint32_t clbk_file_size(char *path);
+
+void clbk_delay(uint8_t ms);
 // Doesn't return
 void clbk_show_error(char *msg);
 // The newline is explicitly passed

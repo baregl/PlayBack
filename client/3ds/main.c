@@ -270,3 +270,9 @@ void add_dir(char *dir, char ***dirs, int *dirs_len)
 	(*dirs)[(*dirs_len)++] = dir;
 	(*dirs)[*dirs_len] = 0;
 }
+
+void clbk_delay(uint8_t ms)
+{
+	// TODO Verify it's really ns
+	svcSleepThread(ms * 1000000);
+}

@@ -208,3 +208,9 @@ void add_dir(char *dir, char ***dirs, int *dirs_len)
 	(*dirs)[(*dirs_len)++] = dir;
 	(*dirs)[*dirs_len] = 0;
 }
+
+void clbk_delay(uint8_t ms)
+{
+	if (usleep(1000000 * ms) != 0)
+		clbk_show_status("Sleep error");
+}

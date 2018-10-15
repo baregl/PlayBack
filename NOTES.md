@@ -1,6 +1,5 @@
 # Notes
 ## TODO
-- Do proper receiving on client side, currently relying on read being filled (Implementation)
 - Add ssl support support to implementations (lib doesn't care)
   - Use something like nginx ssl termination for the server, so the
     server doesn't have to handle certificates and all the entailing complications

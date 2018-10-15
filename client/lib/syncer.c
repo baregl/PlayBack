@@ -16,6 +16,7 @@ void send_header(char *passwd, char *devname, char *devid, char *ver);
 void send_dir(char *dir);
 void handle_transfer(uint8_t *transfer_req, char **base_dirs);
 bool check_in_base_dirs(char *dir, char **base_dirs);
+void receive_exact(uint8_t *data, uint32_t length);
 
 void syncer_run(char **dirs, char *devname, char *devid, char *ver,
 		char *passwd)
@@ -37,11 +38,7 @@ void syncer_run(char **dirs, char *devname, char *devid, char *ver,
 	// And make sure it's null terminated
 	transfer_req[transfer_req_size] = 0;
 	do {
-		if (clbk_receive(transfer_req, transfer_req_size) !=
-		    transfer_req_size) {
-			clbk_show_error("Transfer Request too small, probably "
-					"connection interrupted");
-		}
+		receive_exact(transfer_req, transfer_req_size);
 		LOG("Received request\n");
 		handle_transfer(transfer_req, dirs);
 	} while (transfer_req[0] != 'e');
@@ -185,4 +182,22 @@ bool check_in_base_dirs(char *dir, char **base_dirs)
 		    0)
 			return true;
 	return false;
+}
+
+void receive_exact(uint8_t *data, uint32_t length)
+{
+	uint32_t repeat_count = data_timeout;
+	while (repeat_count != 0) {
+		uint32_t read = clbk_receive(data, length);
+		data += read;
+		length -= read;
+		if (length == 0) {
+			return;
+		}
+		if (read == 0) {
+			repeat_count--;
+			clbk_delay(1);
+		}
+	}
+	clbk_show_error("Timeout for receive");
 }
