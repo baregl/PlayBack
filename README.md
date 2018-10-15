@@ -28,15 +28,18 @@ hashed, but if you're on an untrustworthy network, all your files can be leaked.
 You can only change or upload new files to the server, not read existing ones.
 
 ## Q&A
-1. The initial sync is really slow, can't you speed it up?
+1. The syncs are always really slow! How can that be?
 
-   Most game consoles seem to have very network interfaces. You may try to copy
-   all the files manually, so the first sync doesn't have to send all the files
+   On every sync, a list of all your files and folders will be transmitted. This
+   may take a few minutes.
 
-2. The 3ds client is absurdly slow, how can this be?
-
-   If you have a directory with lots of files in it, certain operations
+   If you have a directory with lots of files on the 3ds, certain operations
    slow down significantly. This seems to be an inherent limitation of the 3ds.
+
+2. The initial sync is really slow, can't you speed it up?
+
+   Most game consoles seem to have very slow network interfaces. You may try to copy
+   all the files manually another way, so the first sync doesn't have to send all the files
 
 3. Why doesn't it work on Windows?
 
@@ -63,6 +66,11 @@ You can only change or upload new files to the server, not read existing ones.
 
    No, don't use anything you can remember. Just generate a random password. If
    you have no idea how to do that, use [this](https://ddg.co/?q=random%20password).
+8. Is it safe to interrupt the sync process?
+
+   Yes. It may leave the file that is currently being transmitted incomplete,
+   but it will be retransmitted on the next sync.
+
 ## Based on
 - Clientlib
   - PKGJ for the config parser by Philippe Daouadi (BSD 2-Clause)
@@ -86,6 +94,9 @@ You can only change or upload new files to the server, not read existing ones.
 ## License
 Everything is licensed under AGPL, found in the LICENSE file, except files
 with their own copyright header.
+
+The client library may be relicensed when the need arises, for example a GPLv2
+or proprietary sdk. Please be aware of that when creating pull requests.
 ## Known Issues
 - The 3DS client takes really long for directories with lots of files. This
   seems to be an inherent limitation of the 3ds.
