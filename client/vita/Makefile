@@ -15,7 +15,7 @@ OBJ=${SRC:.c=.vita.o}
 DEP=${SRC:.c=.d}
 INC=${LIB}
 
-CFLAGS=-std=gnu99 -Wall -Wextra -O2 -Wl,-q
+CFLAGS=-std=gnu99 -Wall -Wextra -O2 -Wl,-q -flto
 LDFLAGS= -Wl,-q
 
 CC := arm-vita-eabi-gcc
