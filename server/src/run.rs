@@ -342,7 +342,8 @@ fn download_file(
         );
     }
 
-    set_file_mtime(&full_path, entry.mtime as i64).context("Adjusting mtime for downloaded file")?;
+    set_file_mtime(&full_path, entry.mtime as i64)
+        .context("Adjusting mtime for downloaded file")?;
     Ok(())
 }
 
