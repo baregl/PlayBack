@@ -5,6 +5,7 @@
 #include <psp2/display.h>
 #include <psp2/io/stat.h>
 #include <psp2/kernel/processmgr.h>
+#include <psp2/kernel/rng.h>
 #include <psp2/kernel/threadmgr.h>
 #include <psp2/net/net.h>
 #include <psp2/net/netctl.h>
@@ -40,7 +41,7 @@ static volatile int g_power_lock;
 
 static const int PORT = 9483;
 char *server;
-char *pass;
+char *enc_key;
 char *name;
 char **dirs = NULL;
 int dirs_len = 0;
@@ -61,7 +62,7 @@ int main(void)
 		clbk_show_error("Couldn't parse config");
 	}
 
-	if (server == NULL || pass == NULL || dirs == NULL || name == NULL) {
+	if (server == NULL || enc_key == NULL || dirs == NULL || name == NULL) {
 		clbk_show_error("Missing config parameters");
 	}
 	static char net_mem[1 * 1024 * 1024];
@@ -82,7 +83,7 @@ int main(void)
 	if (tcp_connection == -1 || cret == -1)
 		clbk_show_error("Connect to server failed");
 	LOG("Starting sync\n");
-	syncer_run(dirs, "vita", name, "0.1", pass);
+	syncer_run(dirs, "vita", name, "0.1", enc_key);
 	close(open_file);
 	close(tcp_connection);
 	sceNetTerm();
@@ -222,8 +223,8 @@ void clbk_config_entry(char *key, char *val)
 	memcpy(data, val, len);
 	if (strcmp("dir", key) == 0)
 		add_dir(data, &dirs, &dirs_len);
-	else if (strcmp("pass", key) == 0)
-		pass = data;
+	else if (strcmp("key", key) == 0)
+		enc_key = data;
 	else if (strcmp("name", key) == 0)
 		name = data;
 	else if (strcmp("server", key) == 0)
@@ -245,4 +246,10 @@ void clbk_delay(uint8_t ms)
 {
 	// TODO Verify that it's really us
 	sceKernelDelayThread(ms * 1000);
+}
+
+void clbk_get_random(uint8_t *data, uint8_t len)
+{
+	if (sceKernelGetRandomNumber(data, len) != 0)
+		clbk_show_error("Couldn't get random number");
 }

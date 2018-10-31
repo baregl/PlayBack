@@ -7,6 +7,6 @@ pub struct Config {
 
 #[derive(Deserialize, Debug)]
 pub struct Device {
-    pub pass: String,
+    pub key: String,
     pub dir: String,
 }

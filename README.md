@@ -23,8 +23,9 @@ Available Servers:
 - Reference server, Rust based (Unix, may have serious path traversal bugs on
   Windows or similar things)
 
-It works over a non-encrypted TCP connection to Port 9483. Your password is
-hashed, but if you're on an untrustworthy network, all your files can be leaked.
+It works over a encrypted TCP connection to Port 9483. Your encryption key is
+the authentication of your client & server, but if you're on an untrustworthy
+network with people who can guess that key, all your files can be leaked.
 You can only change or upload new files to the server, not read existing ones.
 
 ## Q&A
@@ -53,7 +54,7 @@ You can only change or upload new files to the server, not read existing ones.
    like the DS, with only 4MB of ram, may not be feasible or are undocumented.
    Here the client state is mostly limited to the file that is currently synced.
 
-5. Why no 2-way sync? Only paths with 256 characters? No encryption? Is this the 90s?
+5. Why no 2-way sync? Only paths with 256 characters? Is this the 90s?
 
    Maybe in the future
 
@@ -62,10 +63,12 @@ You can only change or upload new files to the server, not read existing ones.
    I'll try to implement support for some more common consoles, but if you don't
    want to wait, try implementing it yourself.
 
-7. So where do I get the password from? Should I just use my email password?
+7. So where do I get the encryption from? Should I just use my email password?
 
-   No, don't use anything you can remember. Just generate a random password. If
+   No, don't use anything you can remember. Just generate a random key. If
    you have no idea how to do that, use [this](https://ddg.co/?q=random%20password).
+   Ideally it should be more than 64 Characters long.
+
 8. Is it safe to interrupt the sync process?
 
    Yes. It may leave the file that is currently being transmitted incomplete,

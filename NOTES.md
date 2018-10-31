@@ -1,8 +1,6 @@
 # Notes
 ## TODO
-- Add ssl support support to implementations (lib doesn't care)
-  - Use something like nginx ssl termination for the server, so the
-    server doesn't have to handle certificates and all the entailing complications
+- Add functionality to server to generate crypto keys
 - Logging for server
 - Save decryption & similar things
   - Transparently or just dumping all of them into a seperate directory before
@@ -19,34 +17,24 @@
   - PSP
   - DS
   - Basically everything with network and storage
-## Protocol
+## Protocol 2
 - Port 9483 with TCP
 - Little Endian
-### Begin Session (96)
-- Magic string "PLYSYNC1" (8)
+### Crypto Session Beginn
+Detailed in CRYPTO.md
+### Begin Session (80)
 - Device name (8)
 
-  - Client specific
+  - Client (implementation) specific
   - Filled up with \0 Bytes
   - Example: "3DS\0\0\0\0\0"
   - Valid characters: ```[A-Z][a-z][0-9]```
-
-- Device id (8)
-
-  - Client device specific
-  - Filled up with \0 Bytes
-  - Example: "SlimBlue"
-  - Valid characters: ```[A-Z][a-z][0-9] ``` (space)
 
 - Client Version (8)
 
   - Filled up with \0 Bytes
   - Example: "0.1.3\0\0\0"
   - Valid characters: ```[0-9].```
-
-- Password (64)
-
-  - sha512 hash of the password
 
 ### File Listing (272)
 - Type (1)
@@ -84,12 +72,15 @@
 
 - Path (256)
 #### Data Response
+Size, File & Hash are separately transmitted & encrypted
 - Size (4)
 
   - Only if file requested
 
 - File (size)
 
+  - Transmitted in 2^16 Chunks
+    Needed for auth
   - Only if file requested
 
 - Hash (4)

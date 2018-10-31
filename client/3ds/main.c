@@ -31,7 +31,7 @@ int open_file = -1;
 
 static const int PORT = 9483;
 char *server;
-char *pass;
+char *enc_key;
 char *name;
 char **dirs = NULL;
 int dirs_len = 0;
@@ -53,6 +53,9 @@ int main(void)
 
 	printf("\nembsyncclient\n");
 
+	// Init ps, for the PS_Generate_RandomBytes function
+	if (R_FAILED(psInit()))
+		clbk_show_error("Couldn't init ps");
 	// allocate buffer for SOC service
 	SOC_buffer = (uint32_t *)memalign(SOC_ALIGN, SOC_BUFFERSIZE);
 
@@ -77,7 +80,7 @@ int main(void)
 		printf("Couldn't parse config\n");
 		exit(-1);
 	}
-	if (server == NULL || pass == NULL || dirs == NULL || name == NULL) {
+	if (server == NULL || enc_key == NULL || dirs == NULL || name == NULL) {
 		printf("Missing config parameters\n");
 	}
 	LOG("Opening TCP Connection\n");
@@ -96,7 +99,7 @@ int main(void)
 	if (tcp_connection == -1 || cret == -1)
 		clbk_show_error("Connect to server failed");
 	LOG("Starting sync\n");
-	syncer_run(dirs, "3ds", name, "0.1", pass);
+	syncer_run(dirs, "3ds", name, "0.1", enc_key);
 
 	close(open_file);
 	shutdown(tcp_connection, SHUT_RDWR);
@@ -244,8 +247,8 @@ void clbk_config_entry(char *key, char *val)
 	memcpy(data, val, len);
 	if (strcmp("dir", key) == 0)
 		add_dir(data, &dirs, &dirs_len);
-	else if (strcmp("pass", key) == 0)
-		pass = data;
+	else if (strcmp("key", key) == 0)
+		enc_key = data;
 	else if (strcmp("name", key) == 0)
 		name = data;
 	else if (strcmp("server", key) == 0)
@@ -275,4 +278,10 @@ void clbk_delay(uint8_t ms)
 {
 	// TODO Verify it's really ns
 	svcSleepThread(ms * 1000000);
+}
+
+void clbk_get_random(uint8_t *data, uint8_t len)
+{
+	if (R_FAILED(PS_GenerateRandomBytes(data, len)))
+		clbk_show_error("Couldn't generate random bytes");
 }

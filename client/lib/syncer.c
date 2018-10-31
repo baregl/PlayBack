@@ -1,6 +1,7 @@
 #include "syncer.h"
 
 #include "constants.h"
+#include "crypto.h"
 #include "murmur3.h"
 #include "tweetnacl.h"
 #include <stdlib.h>
@@ -12,64 +13,51 @@
 	(dest)[2] = (value >> 16) & 0xFF;                                      \
 	(dest)[3] = (value >> 24) & 0xFF;
 
-void add_entry(uint8_t *entry);
-void send_header(char *passwd, char *devname, char *devid, char *ver);
+void send_header(char *devname, char *ver);
 void send_dir(char *dir);
 void handle_transfer(uint8_t *transfer_req, char **base_dirs);
 bool check_in_base_dirs(char *dir, char **base_dirs);
-void receive_exact(uint8_t *data, uint32_t length);
 
-void syncer_run(char **dirs, char *devname, char *devid, char *ver,
-		char *passwd)
+void syncer_run(char **dirs, char *devname, char *devid, char *ver, char *key)
 {
 	// TODO Handle dir ending without '/'
-	send_header(passwd, devname, devid, ver);
+	encrypted_begin_communication(devid, key);
+	send_header(devname, ver);
 	LOG("Sending entries\n");
 	clbk_show_status("Sending entries\n");
 	for (int i = 0; dirs[i] != NULL; i++)
 		send_dir(dirs[i]);
 	LOG("Sending end of entries\n");
-	uint8_t entry[entry_size] = {};
+	uint8_t entry[crypto_secretbox_ZEROBYTES + entry_size] = {0};
 	// Iterate over directory
-	entry[0] = 'e';
-	add_entry(entry);
-	uint8_t transfer_req[transfer_req_size + 1];
+	entry[crypto_secretbox_ZEROBYTES] = 'e';
+	encrypted_send(entry, sizeof(entry));
+	uint8_t
+	    transfer_req[crypto_secretbox_ZEROBYTES + transfer_req_size + 1];
 	// Just to make sure the 0th byte isn't 'e'
-	transfer_req[0] = 0;
+	transfer_req[crypto_secretbox_ZEROBYTES] = 0;
 	// And make sure it's null terminated
-	transfer_req[transfer_req_size] = 0;
+	transfer_req[crypto_secretbox_ZEROBYTES + transfer_req_size] = 0;
 	do {
-		receive_exact(transfer_req, transfer_req_size);
+		encrypted_receive(transfer_req, crypto_secretbox_ZEROBYTES +
+						    transfer_req_size);
 		LOG("Received request\n");
-		handle_transfer(transfer_req, dirs);
-	} while (transfer_req[0] != 'e');
+		handle_transfer(transfer_req + crypto_secretbox_ZEROBYTES,
+				dirs);
+	} while (transfer_req[crypto_secretbox_ZEROBYTES] != 'e');
 	clbk_show_status("Done\n");
 }
 
-void add_entry(uint8_t *entry)
-{
-	static uint8_t queue[entry_size * queue_max_depth];
-	static uint8_t queue_pos = 0;
-	memcpy(queue + (queue_pos++ * entry_size), entry, entry_size);
-	if ((entry[0] == 'e') || (queue_pos == queue_max_depth)) {
-		clbk_send(queue, queue_pos * entry_size);
-		queue_pos = 0;
-	}
-}
-
-void send_header(char *passwd, char *devname, char *devid, char *ver)
+void send_header(char *devname, char *ver)
 {
 	LOG("Assembling header\n");
-	unsigned char h[crypto_hash_BYTES];
-	crypto_hash(h, passwd, strlen(passwd));
-	uint8_t data[header_size] = {'P', 'L', 'Y', 'S', 'Y', 'N', 'C', '1'};
-	strncpy((char *)data + 8, devname, 8);
-	strncpy((char *)data + 16, devid, 8);
-	strncpy((char *)data + 24, ver, 8);
+	uint8_t data[crypto_secretbox_ZEROBYTES + 16];
+	strncpy((char *)data + crypto_secretbox_ZEROBYTES, devname, 8);
+	strncpy((char *)data + crypto_secretbox_ZEROBYTES + 8, ver, 8);
 	LOG("Sending header\n");
-	clbk_send(data, sizeof(data));
-	clbk_send(h, crypto_hash_BYTES);
+	encrypted_send(data, sizeof(data));
 }
+
 void send_dir(char *dir)
 {
 	LOG("Opening %s\n", dir);
@@ -89,16 +77,19 @@ void send_dir(char *dir)
 			continue;
 		LOG("sending entry %s\n", dentry->name);
 		// So we can have a final \0
-		static uint8_t entry[entry_size + 1];
-		entry[0] = dentry->dir ? 'd' : 'f';
-		entry[1] = 0;
-		entry[2] = 0;
-		entry[3] = 0;
+		static uint8_t
+		    entry[crypto_secretbox_ZEROBYTES + entry_size + 1];
+		entry[crypto_secretbox_ZEROBYTES + 0] = dentry->dir ? 'd' : 'f';
+		entry[crypto_secretbox_ZEROBYTES + 1] = 0;
+		entry[crypto_secretbox_ZEROBYTES + 2] = 0;
+		entry[crypto_secretbox_ZEROBYTES + 3] = 0;
 		LOG("with size: %li, mtime %lli\n", dentry->size,
 		    dentry->mtime);
-		bytiffy_uint32(entry + 4, dentry->size);
-		bytiffy_uint32(entry + 8, (dentry->mtime & 0xFFFFFFFF));
-		bytiffy_uint32(entry + 12,
+		bytiffy_uint32(crypto_secretbox_ZEROBYTES + entry + 4,
+			       dentry->size);
+		bytiffy_uint32(crypto_secretbox_ZEROBYTES + entry + 8,
+			       (dentry->mtime & 0xFFFFFFFF));
+		bytiffy_uint32(crypto_secretbox_ZEROBYTES + entry + 12,
 			       ((dentry->mtime >> 32) & 0xFFFFFFFF));
 		uint16_t newlen = strlen(dir) + strlen(dentry->name) + 1;
 		if (newlen > 256) {
@@ -107,17 +98,24 @@ void send_dir(char *dir)
 				;
 		}
 		// We null the rest of the entry here
-		strncpy((char *)entry + 16, dir, entry_size - 16);
-		strcpy((char *)entry + 16 + strlen(dir), dentry->name);
-		entry[newlen + 16] = '\0';
-		LOG("Full path is %s, type %c\n", entry + 16, entry[0]);
-		add_entry(entry);
+		strncpy((char *)(crypto_secretbox_ZEROBYTES + entry + 16), dir,
+			entry_size - 16);
+		strcpy((char *)(crypto_secretbox_ZEROBYTES + entry + 16 +
+				strlen(dir)),
+		       dentry->name);
+		// Zero out the rest
+		for (int i = crypto_secretbox_ZEROBYTES + newlen + 16;
+		     i < sizeof(entry); i++)
+			entry[i] = 0;
+		LOG("Full path is %s, type %c\n",
+		    crypto_secretbox_ZEROBYTES + entry + 16, entry[0]);
+		encrypted_send(entry, crypto_secretbox_ZEROBYTES + entry_size);
 		if (dentry->dir) {
 			// TODO Different types of allocations if vlas aren't
 			// supported
 			char path[newlen + 1];
 			memcpy(path, entry + 16, newlen);
-			// TODO Remove plattform specific file seperator
+			// TODO Remove plattform specific file separator
 			path[newlen - 1] = '/';
 			path[newlen] = 0;
 			send_dir(path);
@@ -135,12 +133,17 @@ void handle_transfer(uint8_t *transfer_req, char *base_dirs[])
 			clbk_show_error(" not within base dir");
 		}
 		// Just so this isn't stack allocated
-		static uint8_t transfer_buffer[transfer_size];
+		static uint8_t
+		    transfer_buffer[crypto_secretbox_ZEROBYTES + transfer_size];
 		uint32_t size = clbk_file_size((char *)transfer_req + 1);
 		LOG("File size is %li\n", size);
 		if (transfer_req[0] == 'f') {
-			bytiffy_uint32(transfer_buffer, size);
-			clbk_send(transfer_buffer, 4);
+			for (int i = 0; i < crypto_secretbox_ZEROBYTES; i++)
+				transfer_buffer[i] = 0;
+			bytiffy_uint32(
+			    transfer_buffer + crypto_secretbox_ZEROBYTES, size);
+			encrypted_send(transfer_buffer,
+				       crypto_secretbox_ZEROBYTES + 4);
 			LOG("Sent file size\n");
 		}
 		if (clbk_open((char *)transfer_req + 1) == -1) {
@@ -156,20 +159,32 @@ void handle_transfer(uint8_t *transfer_req, char *base_dirs[])
 			clbk_show_status("Sending ");
 		clbk_show_status((char *)transfer_req + 1);
 		clbk_show_status("\n");
-		while ((read = clbk_read(transfer_buffer,
-					 sizeof(transfer_buffer))) ==
-		       sizeof(transfer_buffer)) {
-			h = murmur3_32_step(h, transfer_buffer, read);
-			if (transfer_req[0] == 'f')
-				clbk_send(transfer_buffer, read);
+		// TODO This will break if the file was swapped out under us.
+		// For now, this is probably sufficient
+		while ((read = clbk_read(transfer_buffer +
+					     crypto_secretbox_ZEROBYTES,
+					 transfer_size)) == transfer_size) {
+			h = murmur3_32_step(
+			    h, transfer_buffer + crypto_secretbox_ZEROBYTES,
+			    read);
+			if (transfer_req[0] == 'f') {
+				// The first ZEROBYTES are already zero
+				encrypted_send(transfer_buffer,
+					       crypto_secretbox_ZEROBYTES +
+						   read);
+			}
 		}
-		h = murmur3_32_finalize(h, transfer_buffer, read, size);
+		printf("Left %i\n", read);
+		h = murmur3_32_finalize(
+		    h, transfer_buffer + crypto_secretbox_ZEROBYTES, read,
+		    size);
 		if (transfer_req[0] == 'f') {
-			clbk_send(transfer_buffer, read);
+			encrypted_send(transfer_buffer,
+				       crypto_secretbox_ZEROBYTES + read);
 			LOG("Sent file %s\n", (char *)transfer_req + 1);
 		}
-		bytiffy_uint32(transfer_buffer, h);
-		clbk_send(transfer_buffer, 4);
+		bytiffy_uint32(transfer_buffer + crypto_secretbox_ZEROBYTES, h);
+		encrypted_send(transfer_buffer, crypto_secretbox_ZEROBYTES + 4);
 		LOG("Sent checksum %lx\n", h);
 	}
 }
@@ -183,20 +198,9 @@ bool check_in_base_dirs(char *dir, char **base_dirs)
 	return false;
 }
 
-void receive_exact(uint8_t *data, uint32_t length)
+// tweetnacl wants a randombyte function, which isn't needed for our purposes
+void randombytes(uint8_t *a, uint64_t b)
 {
-	uint32_t repeat_count = data_timeout;
-	while (repeat_count != 0) {
-		uint32_t read = clbk_receive(data, length);
-		data += read;
-		length -= read;
-		if (length == 0) {
-			return;
-		}
-		if (read == 0) {
-			repeat_count--;
-			clbk_delay(1);
-		}
-	}
-	clbk_show_error("Timeout for receive");
+	clbk_show_error("called randombytes, usually not needed, just here for "
+			"linking errors");
 }

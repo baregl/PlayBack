@@ -1,4 +1,4 @@
-use super::{config, logs, opt, parse};
+use super::{config, crypto, crypto::Encrypted, logs, opt, parse};
 use failure::Error;
 
 use byteorder::{LittleEndian, ReadBytesExt};
@@ -7,13 +7,12 @@ use failure::ResultExt;
 use filetime;
 use filetime::FileTime;
 use murmur3::murmur3_32::MurmurHasher;
-use sodiumoxide::crypto::hash;
 use std::collections::HashMap;
 use std::ffi;
 use std::fs;
 use std::hash::Hasher;
 use std::io;
-use std::io::{BufRead, Read, Write};
+use std::io::{BufRead, Write};
 use std::mem::drop;
 use std::net::{TcpListener, TcpStream};
 use std::os::unix::ffi::OsStrExt;
@@ -38,40 +37,39 @@ pub fn run(opt: opt::Opt) -> Result<(), Error> {
         let map = sync::Arc::clone(&map);
         thread::spawn(move || {
             let stream = stream.unwrap();
-            sync_process(stream, &map).map_err(|e| logs::report(&e)).ok();
+            sync_process(stream, &map)
+                .map_err(|e| logs::report(&e))
+                .ok();
         });
         // Just some very basic bruteforce protection
-        // It should take about 60 Years to guess a password hash
+        // This should make bruteforcing the key impossible
         thread::sleep(Duration::from_secs(1));
     }
     Ok(())
 }
 
-fn sync_process(
-    mut stream: TcpStream,
-    devices: &HashMap<String, config::Device>,
-) -> Result<(), Error> {
-    let mut header_data = [0; parse::HEADER_SIZE as usize];
-    stream
-        .read_exact(&mut header_data)
-        .context("Reading header")?;
-    let header = parse::Header::parse(&header_data)
+fn sync_process(stream: TcpStream, devices: &HashMap<String, config::Device>) -> Result<(), Error> {
+    let (mut enc_comm, id) = crypto::Encrypted::begin_encrypted_communication(stream, devices)
+        .context("Couldn't begin encrypted communication")?;
+    let header_data = enc_comm
+        .receive(parse::HEADER_SIZE as usize)
+        .context("Reading Header")?;
+    // Currently not needed
+    let _header = parse::Header::parse(&header_data)
         .map_err(|err| format_err!("Failed to parse header: {}", err))?
         .1;
-    let base_dir = if let Some(device) = devices.get(&header.id) {
-        let pass = hash::hash(&device.pass.as_bytes());
-        if pass.as_ref() == header.pass {
-            path::PathBuf::from(&device.dir)
-        } else {
-            bail!("Device {} has wrong pass", header.id);
-        }
+    let base_dir = if let Some(device) = devices.get(&id) {
+        path::PathBuf::from(&device.dir)
     } else {
-        bail!("Device {} isn't registered", header.id);
+        bail!(
+            "Device {} isn't registered, even though we were able to initiate communication",
+            &id
+        );
     };
     let (dir_map, time_check_files, mut missing_files) =
-        receive_entries(&mut stream, &base_dir).context("Receiving entries")?;
+        receive_entries(&mut enc_comm, &base_dir).context("Receiving entries")?;
     for entry in time_check_files {
-        if !check_file_checksum(&mut stream, &base_dir, &entry)
+        if !check_file_checksum(&mut enc_comm, &base_dir, &entry)
             .context("Checking the file checksum")?
         {
             missing_files.push(entry);
@@ -83,20 +81,20 @@ fn sync_process(
     }
 
     for entry in missing_files {
-        download_file(&mut stream, &base_dir, &entry)
+        download_file(&mut enc_comm, &base_dir, &entry)
             .context(format!("Downloading File {}", entry.path.display()))?;
     }
     let mut header = [0; parse::REQUEST_SIZE as usize];
     header[0] = b'e';
-    stream
-        .write(&header)
+    enc_comm
+        .send(&header)
         .context("Writing final download header")?;
     clean_tree_up(&base_dir, dir_map).context("Cleaning tree up")?;
     Ok(())
 }
 
 fn receive_entries(
-    stream: &mut TcpStream,
+    enc_comm: &mut Encrypted,
     base_dir: &path::Path,
 ) -> Result<
     (
@@ -109,11 +107,11 @@ fn receive_entries(
     let mut dir_map = HashMap::new();
     let mut time_check_files = Vec::new();
     let mut missing_files = Vec::new();
-    let mut entry_buffer = [0; parse::ENTRY_SIZE as usize];
+    let mut entry_buffer;
     let mut entry;
 
-    stream
-        .read_exact(&mut entry_buffer)
+    entry_buffer = enc_comm
+        .receive(parse::ENTRY_SIZE as usize)
         .context("Reading entry")?;
     entry = parse::Entry::parse(&entry_buffer)
         .map_err(|err| format_err!("Failed to parse entry: {}", err))?
@@ -143,9 +141,8 @@ fn receive_entries(
                 FileState::Missing => missing_files.push(entry),
             }
         }
-
-        stream
-            .read_exact(&mut entry_buffer)
+        entry_buffer = enc_comm
+            .receive(parse::ENTRY_SIZE as usize)
             .context("Reading entry")?;
         entry = parse::Entry::parse(&entry_buffer)
             .map_err(|err| format_err!("Failed to parse entry: {}", err))?
@@ -179,7 +176,7 @@ fn add_dir_entry(
                 map.insert(component.to_os_string(), MapEntry::File);
             }
         } else if !map.contains_key(component) {
-                map.insert(component.to_os_string(), MapEntry::Dir(HashMap::new()));
+            map.insert(component.to_os_string(), MapEntry::Dir(HashMap::new()));
         },
         Some(next) => {
             if !map.contains_key(component) {
@@ -227,7 +224,7 @@ fn check_existing(base: &path::Path, entry: &parse::Entry) -> Result<FileState, 
 }
 
 fn check_file_checksum(
-    stream: &mut TcpStream,
+    enc_comm: &mut Encrypted,
     base: &path::Path,
     entry: &parse::Entry,
 ) -> Result<bool, failure::Error> {
@@ -239,9 +236,7 @@ fn check_file_checksum(
         }
         header[num + 1] = *entry;
     }
-    stream
-        .write(&header)
-        .context("Couldn't write checksum request")?;
+    enc_comm.send(&header).context("Sending checksum request")?;
 
     let full_path = get_full_path(base, &entry.path)?;
 
@@ -263,10 +258,7 @@ fn check_file_checksum(
         file.consume(consumed);
     }
     let hash = hasher.finish() as u32;
-    let mut hash_read_buffer = [0; 4];
-    stream
-        .read_exact(&mut hash_read_buffer)
-        .context("Couldn't read hash")?;
+    let hash_read_buffer = enc_comm.receive(4).context("Receiving Hash")?;
     // This shouldn't fail
     let received_hash = io::Cursor::new(&hash_read_buffer)
         .read_u32::<LittleEndian>()
@@ -275,7 +267,7 @@ fn check_file_checksum(
 }
 
 fn download_file(
-    stream: &mut TcpStream,
+    enc_comm: &mut Encrypted,
     base: &path::Path,
     entry: &parse::Entry,
 ) -> Result<(), failure::Error> {
@@ -287,14 +279,13 @@ fn download_file(
         }
         header[num + 1] = *entry;
     }
-    stream.write(&header).context("Writing download header")?;
+    enc_comm.send(&header).context("Sending download header")?;
 
-    let mut u32_buffer = [0; 4];
-    stream
-        .read_exact(&mut u32_buffer)
-        .context("Reading download file size")?;
+    let file_size_buffer = enc_comm
+        .receive(4)
+        .context("Receiving download file size")?;
     // This shouldn't fail
-    let file_size = io::Cursor::new(&u32_buffer)
+    let file_size = io::Cursor::new(&file_size_buffer)
         .read_u32::<LittleEndian>()
         .context("Parsing download file size")?;
     if file_size != entry.size {
@@ -319,28 +310,25 @@ fn download_file(
     let mut size_left = file_size;
     let mut hasher = MurmurHasher::default();
 
-    let mut file_buffer = [0; parse::READ_SIZE as usize];
     while size_left != 0 {
         let read_size = if size_left >= parse::READ_SIZE {
             parse::READ_SIZE
         } else {
             size_left
         };
-        let read_buffer = &mut file_buffer[0..read_size as usize];
-        stream
-            .read_exact(read_buffer)
-            .context("Reading download file fragment")?;
-        hasher.write(read_buffer);
-        file.write(read_buffer)
+
+        let read_buffer = enc_comm
+            .receive(read_size as usize)
+            .context("Receiving download jile fragment")?;
+        hasher.write(&read_buffer);
+        file.write(&read_buffer)
             .context("Writing download file fragment to file")?;
         size_left -= read_size;
     }
     let hash = hasher.finish() as u32;
-    stream
-        .read_exact(&mut u32_buffer)
-        .context("Reading download hash")?;
+    let hash_buffer = enc_comm.receive(4).context("Reading download hash")?;
     // This shouldn't fail
-    let received_hash = io::Cursor::new(&u32_buffer)
+    let received_hash = io::Cursor::new(&hash_buffer)
         .read_u32::<LittleEndian>()
         .context("Parsing download hash")?;
 

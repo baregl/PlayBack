@@ -22,3 +22,4 @@ pub mod logs;
 pub mod opt;
 pub mod parse;
 pub mod run;
+pub mod crypto;

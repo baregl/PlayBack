@@ -16,10 +16,11 @@ void add_dir(char *dir, char ***dirs, int *dirs_len);
 
 int tcp_connection = -1;
 int open_file = -1;
+int rand_file = -1;
 
 static const int PORT = 9483;
 char *server;
-char *pass;
+char *enc_key;
 char *name;
 char **dirs = NULL;
 int dirs_len = 0;
@@ -30,12 +31,19 @@ int main(int argc, char *argv[])
 		printf("Usage:\n%s config\n", argv[0]);
 		exit(-1);
 	}
+
+	rand_file = open("/dev/urandom", O_RDONLY);
+	if (rand_file < -1) {
+		printf("Couldn't open urandom\n");
+		exit(-1);
+	}
+
 	if (config_parse(argv[1]) != 0) {
 		printf("Couldn't parse config\n");
 		exit(-1);
 	}
 
-	if (server == NULL || pass == NULL || dirs == NULL || name == NULL) {
+	if (server == NULL || enc_key == NULL || dirs == NULL || name == NULL) {
 		printf("Missing config parameters\n");
 	}
 	// TCP Open
@@ -65,9 +73,10 @@ int main(int argc, char *argv[])
 	if (tcp_connection == -1 || cret == -1)
 		clbk_show_error("Connect to server failed");
 	LOG("Starting sync\n");
-	syncer_run(dirs, "samplecl", name, "0.1", pass);
+	syncer_run(dirs, "samplecl", name, "0.1", enc_key);
 
 	close(open_file);
+	close(rand_file);
 	close(tcp_connection);
 }
 
@@ -175,6 +184,8 @@ void clbk_show_error(char *msg)
 		close(open_file);
 	if (tcp_connection != -1)
 		close(tcp_connection);
+	if (rand_file != -1)
+		close(rand_file);
 	exit(1);
 }
 
@@ -190,8 +201,8 @@ void clbk_config_entry(char *key, char *val)
 	memcpy(data, val, len);
 	if (strcmp("dir", key) == 0)
 		add_dir(data, &dirs, &dirs_len);
-	else if (strcmp("pass", key) == 0)
-		pass = data;
+	else if (strcmp("key", key) == 0)
+		enc_key = data;
 	else if (strcmp("name", key) == 0)
 		name = data;
 	else if (strcmp("server", key) == 0)
@@ -213,4 +224,10 @@ void clbk_delay(uint8_t ms)
 {
 	if (usleep(1000000 * ms) != 0)
 		clbk_show_status("Sleep error");
+}
+
+void clbk_get_random(uint8_t *data, uint8_t len)
+{
+	if (read(rand_file, data, len) != len)
+		clbk_show_error("Couldn't read urandom");
 }
