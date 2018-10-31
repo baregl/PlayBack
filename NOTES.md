@@ -3,7 +3,7 @@
 - Add functionality to server to generate crypto keys
 - Logging for server
 - Save decryption & similar things
-  - Transparently or just dumping all of them into a seperate directory before
+  - Transparently or just dumping all of them into a separate directory before
     syncing? Use decrypted file times when dumping
   - Also sdmc:/Nintendo 3DS/*/title
 - Ideas for ports
@@ -58,9 +58,9 @@ Detailed in CRYPTO.md
   - Invalid characters: \0
   - Don't include non-real directories like ".." or ".", they will be rejected
     serverside
-  - For efficient/proper server side handeling, use '/' as a directory seperator.
+  - For efficient/proper server side handeling, use '/' as a directory separator.
     Otherwise *all* the files might be stored in one directory, which will lead
-    to performance issues and be very to restore.
+    to performance issues and making the data more difficult to restore.
 ### Data Transfer
 #### Data Request
 - From server
