@@ -7,12 +7,9 @@ pub fn init(verbosity: u8) -> Result<(), SetLoggerError> {
 }
 
 pub fn report(error: &Error) {
-    error!("{}", error);
+    error!("An error occured while: {}", error);
     for e in error.iter_chain().skip(1) {
-        error!("Caused By: {}", e);
-        if let Some(bt) = e.backtrace() {
-            error!("Backtrace: {}", bt);
-        }
+        error!("Caused by: {}", e);
     }
 }
 /// Sets the verbosity level of messages that will be displayed
