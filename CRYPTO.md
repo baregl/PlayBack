@@ -4,7 +4,7 @@
   desirable to be able to use the internet as a way to securely sync
 - In case of a future bidirectional sync, by simply passivly sniffing the
   password hash, you can always syphon data from the server
-# Reasons why (unfotunately) TLS won't work
+# Reasons why (unfortunately) TLS won't work
 - TLS requires a valid security certificate, which, while significantly easier
   in the world of lets encrypt is still a daunting task for most people.
   Self-signed certificates would require significant UI structure, especially as

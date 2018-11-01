@@ -67,7 +67,7 @@ void send_dir(char *dir)
 		// Particularly on vita, the ux0:/MUSIC dir can't be opened
 		clbk_show_status("Couldn't open dir ");
 		clbk_show_status(dir);
-		clbk_show_status(". Skipping it.");
+		clbk_show_status(". Skipping it.\n");
 		return;
 	}
 	struct dir_entry *dentry;
@@ -108,13 +108,15 @@ void send_dir(char *dir)
 		     i < sizeof(entry); i++)
 			entry[i] = 0;
 		LOG("Full path is %s, type %c\n",
-		    crypto_secretbox_ZEROBYTES + entry + 16, entry[0]);
+		    crypto_secretbox_ZEROBYTES + entry + 16,
+		    entry[0 + crypto_secretbox_ZEROBYTES]);
 		encrypted_send(entry, crypto_secretbox_ZEROBYTES + entry_size);
 		if (dentry->dir) {
 			// TODO Different types of allocations if vlas aren't
 			// supported
 			char path[newlen + 1];
-			memcpy(path, entry + 16, newlen);
+			memcpy(path, entry + 16 + crypto_secretbox_ZEROBYTES,
+			       newlen);
 			// TODO Remove plattform specific file separator
 			path[newlen - 1] = '/';
 			path[newlen] = 0;
