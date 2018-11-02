@@ -7,16 +7,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define bytiffy_uint32(dest, value)                                            \
-	(dest)[0] = (value)&0xFF;                                              \
-	(dest)[1] = (value >> 8) & 0xFF;                                       \
-	(dest)[2] = (value >> 16) & 0xFF;                                      \
-	(dest)[3] = (value >> 24) & 0xFF;
-
 void send_header(char *devname, char *ver);
 void send_dir(char *dir);
 void handle_transfer(uint8_t *transfer_req, char **base_dirs);
 bool check_in_base_dirs(char *dir, char **base_dirs);
+void bytiffy_uint32(uint8_t *dest, uint32_t val);
 
 void syncer_run(char **dirs, char *devname, char *devid, char *ver, char *key)
 {
@@ -185,4 +180,12 @@ void randombytes(uint8_t *a, uint64_t b)
 {
 	clbk_show_error("called randombytes, usually not needed, just here for "
 			"linking errors");
+}
+
+void bytiffy_uint32(uint8_t *dest, uint32_t val)
+{
+	(dest)[0] = (val)&0xFF;
+	(dest)[1] = (val >> 8) & 0xFF;
+	(dest)[2] = (val >> 16) & 0xFF;
+	(dest)[3] = (val >> 24) & 0xFF;
 }
