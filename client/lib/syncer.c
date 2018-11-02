@@ -28,32 +28,29 @@ void syncer_run(char **dirs, char *devname, char *devid, char *ver, char *key)
 	for (int i = 0; dirs[i] != NULL; i++)
 		send_dir(dirs[i]);
 	LOG("Sending end of entries\n");
-	uint8_t entry[crypto_secretbox_ZEROBYTES + entry_size] = {0};
+	uint8_t entry[e_padd + entry_size] = {0};
 	// Iterate over directory
-	entry[crypto_secretbox_ZEROBYTES] = 'e';
+	entry[e_padd] = 'e';
 	encrypted_send(entry, sizeof(entry));
-	uint8_t
-	    transfer_req[crypto_secretbox_ZEROBYTES + transfer_req_size + 1];
+	uint8_t transfer_req[e_padd + transfer_req_size + 1];
 	// Just to make sure the 0th byte isn't 'e'
-	transfer_req[crypto_secretbox_ZEROBYTES] = 0;
+	transfer_req[e_padd] = 0;
 	// And make sure it's null terminated
-	transfer_req[crypto_secretbox_ZEROBYTES + transfer_req_size] = 0;
+	transfer_req[e_padd + transfer_req_size] = 0;
 	do {
-		encrypted_receive(transfer_req, crypto_secretbox_ZEROBYTES +
-						    transfer_req_size);
+		encrypted_receive(transfer_req, e_padd + transfer_req_size);
 		LOG("Received request\n");
-		handle_transfer(transfer_req + crypto_secretbox_ZEROBYTES,
-				dirs);
-	} while (transfer_req[crypto_secretbox_ZEROBYTES] != 'e');
+		handle_transfer(transfer_req + e_padd, dirs);
+	} while (transfer_req[e_padd] != 'e');
 	clbk_show_status("Done\n");
 }
 
 void send_header(char *devname, char *ver)
 {
 	LOG("Assembling header\n");
-	uint8_t data[crypto_secretbox_ZEROBYTES + 16];
-	strncpy((char *)data + crypto_secretbox_ZEROBYTES, devname, 8);
-	strncpy((char *)data + crypto_secretbox_ZEROBYTES + 8, ver, 8);
+	uint8_t data[e_padd + 16];
+	strncpy((char *)data + e_padd, devname, 8);
+	strncpy((char *)data + e_padd + 8, ver, 8);
 	LOG("Sending header\n");
 	encrypted_send(data, sizeof(data));
 }
@@ -77,19 +74,17 @@ void send_dir(char *dir)
 			continue;
 		LOG("sending entry %s\n", dentry->name);
 		// So we can have a final \0
-		static uint8_t
-		    entry[crypto_secretbox_ZEROBYTES + entry_size + 1];
-		entry[crypto_secretbox_ZEROBYTES + 0] = dentry->dir ? 'd' : 'f';
-		entry[crypto_secretbox_ZEROBYTES + 1] = 0;
-		entry[crypto_secretbox_ZEROBYTES + 2] = 0;
-		entry[crypto_secretbox_ZEROBYTES + 3] = 0;
+		static uint8_t entry[e_padd + entry_size + 1];
+		entry[e_padd + 0] = dentry->dir ? 'd' : 'f';
+		entry[e_padd + 1] = 0;
+		entry[e_padd + 2] = 0;
+		entry[e_padd + 3] = 0;
 		LOG("with size: %li, mtime %lli\n", dentry->size,
 		    dentry->mtime);
-		bytiffy_uint32(crypto_secretbox_ZEROBYTES + entry + 4,
-			       dentry->size);
-		bytiffy_uint32(crypto_secretbox_ZEROBYTES + entry + 8,
+		bytiffy_uint32(e_padd + entry + 4, dentry->size);
+		bytiffy_uint32(e_padd + entry + 8,
 			       (dentry->mtime & 0xFFFFFFFF));
-		bytiffy_uint32(crypto_secretbox_ZEROBYTES + entry + 12,
+		bytiffy_uint32(e_padd + entry + 12,
 			       ((dentry->mtime >> 32) & 0xFFFFFFFF));
 		uint16_t newlen = strlen(dir) + strlen(dentry->name) + 1;
 		if (newlen > 256) {
@@ -98,25 +93,20 @@ void send_dir(char *dir)
 				;
 		}
 		// We null the rest of the entry here
-		strncpy((char *)(crypto_secretbox_ZEROBYTES + entry + 16), dir,
-			entry_size - 16);
-		strcpy((char *)(crypto_secretbox_ZEROBYTES + entry + 16 +
-				strlen(dir)),
+		strncpy((char *)(e_padd + entry + 16), dir, entry_size - 16);
+		strcpy((char *)(e_padd + entry + 16 + strlen(dir)),
 		       dentry->name);
 		// Zero out the rest
-		for (int i = crypto_secretbox_ZEROBYTES + newlen + 16;
-		     i < sizeof(entry); i++)
+		for (int i = e_padd + newlen + 16; i < sizeof(entry); i++)
 			entry[i] = 0;
-		LOG("Full path is %s, type %c\n",
-		    crypto_secretbox_ZEROBYTES + entry + 16,
-		    entry[0 + crypto_secretbox_ZEROBYTES]);
-		encrypted_send(entry, crypto_secretbox_ZEROBYTES + entry_size);
+		LOG("Full path is %s, type %c\n", e_padd + entry + 16,
+		    entry[0 + e_padd]);
+		encrypted_send(entry, e_padd + entry_size);
 		if (dentry->dir) {
 			// TODO Different types of allocations if vlas aren't
 			// supported
 			char path[newlen + 1];
-			memcpy(path, entry + 16 + crypto_secretbox_ZEROBYTES,
-			       newlen);
+			memcpy(path, entry + 16 + e_padd, newlen);
 			// TODO Remove plattform specific file separator
 			path[newlen - 1] = '/';
 			path[newlen] = 0;
@@ -135,17 +125,14 @@ void handle_transfer(uint8_t *transfer_req, char *base_dirs[])
 			clbk_show_error(" not within base dir");
 		}
 		// Just so this isn't stack allocated
-		static uint8_t
-		    transfer_buffer[crypto_secretbox_ZEROBYTES + transfer_size];
+		static uint8_t transfer_buffer[e_padd + transfer_size];
 		uint32_t size = clbk_file_size((char *)transfer_req + 1);
 		LOG("File size is %li\n", size);
 		if (transfer_req[0] == 'f') {
-			for (int i = 0; i < crypto_secretbox_ZEROBYTES; i++)
+			for (int i = 0; i < e_padd; i++)
 				transfer_buffer[i] = 0;
-			bytiffy_uint32(
-			    transfer_buffer + crypto_secretbox_ZEROBYTES, size);
-			encrypted_send(transfer_buffer,
-				       crypto_secretbox_ZEROBYTES + 4);
+			bytiffy_uint32(transfer_buffer + e_padd, size);
+			encrypted_send(transfer_buffer, e_padd + 4);
 			LOG("Sent file size\n");
 		}
 		if (clbk_open((char *)transfer_req + 1) == -1) {
@@ -163,30 +150,23 @@ void handle_transfer(uint8_t *transfer_req, char *base_dirs[])
 		clbk_show_status("\n");
 		// TODO This will break if the file was swapped out under us.
 		// For now, this is probably sufficient
-		while ((read = clbk_read(transfer_buffer +
-					     crypto_secretbox_ZEROBYTES,
+		while ((read = clbk_read(transfer_buffer + e_padd,
 					 transfer_size)) == transfer_size) {
-			h = murmur3_32_step(
-			    h, transfer_buffer + crypto_secretbox_ZEROBYTES,
-			    read);
+			h = murmur3_32_step(h, transfer_buffer + e_padd, read);
 			if (transfer_req[0] == 'f') {
 				// The first ZEROBYTES are already zero
-				encrypted_send(transfer_buffer,
-					       crypto_secretbox_ZEROBYTES +
-						   read);
+				encrypted_send(transfer_buffer, e_padd + read);
 			}
 		}
 		printf("Left %i\n", read);
-		h = murmur3_32_finalize(
-		    h, transfer_buffer + crypto_secretbox_ZEROBYTES, read,
-		    size);
+		h = murmur3_32_finalize(h, transfer_buffer + e_padd, read,
+					size);
 		if (transfer_req[0] == 'f') {
-			encrypted_send(transfer_buffer,
-				       crypto_secretbox_ZEROBYTES + read);
+			encrypted_send(transfer_buffer, e_padd + read);
 			LOG("Sent file %s\n", (char *)transfer_req + 1);
 		}
-		bytiffy_uint32(transfer_buffer + crypto_secretbox_ZEROBYTES, h);
-		encrypted_send(transfer_buffer, crypto_secretbox_ZEROBYTES + 4);
+		bytiffy_uint32(transfer_buffer + e_padd, h);
+		encrypted_send(transfer_buffer, e_padd + 4);
 		LOG("Sent checksum %lx\n", h);
 	}
 }

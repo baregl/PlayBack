@@ -1,4 +1,6 @@
 #include <stdint.h>
+#define e_padd crypto_secretbox_ZEROBYTES
+
 void encrypted_begin_communication(char *id, char *key);
 
 // First crypto_secretbox_NONCEBYTES have to be 0
