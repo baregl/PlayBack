@@ -12,6 +12,7 @@ void send_dir(char *dir);
 void handle_transfer(uint8_t *transfer_req, char **base_dirs);
 bool check_in_base_dirs(char *dir, char **base_dirs);
 void bytiffy_uint32(uint8_t *dest, uint32_t val);
+void bytiffy_uint64(uint8_t *dest, uint64_t val);
 
 void syncer_run(char **dirs, char *devname, char *devid, char *ver, char *key)
 {
@@ -43,7 +44,7 @@ void syncer_run(char **dirs, char *devname, char *devid, char *ver, char *key)
 void send_header(char *devname, char *ver)
 {
 	LOG("Assembling header\n");
-	uint8_t data[e_padd + 16];
+	uint8_t data[e_padd + 16] = {0};
 	strncpy((char *)data + e_padd, devname, 8);
 	strncpy((char *)data + e_padd + 8, ver, 8);
 	LOG("Sending header\n");
@@ -69,33 +70,25 @@ void send_dir(char *dir)
 			continue;
 		LOG("sending entry %s\n", dentry->name);
 		// So we can have a final \0
-		static uint8_t entry[e_padd + entry_size + 1];
-		entry[e_padd + 0] = dentry->dir ? 'd' : 'f';
-		entry[e_padd + 1] = 0;
-		entry[e_padd + 2] = 0;
-		entry[e_padd + 3] = 0;
+		static uint8_t entry[e_padd + entry_size + 1] = {0};
+		// The upper bytes are 0
+		bytiffy_uint32(e_padd + entry,
+			       (uint32_t)(dentry->dir ? 'd' : 'f'));
 		LOG("with size: %li, mtime %lli\n", dentry->size,
 		    dentry->mtime);
 		bytiffy_uint32(e_padd + entry + 4, dentry->size);
-		bytiffy_uint32(e_padd + entry + 8,
-			       (dentry->mtime & 0xFFFFFFFF));
-		bytiffy_uint32(e_padd + entry + 12,
-			       ((dentry->mtime >> 32) & 0xFFFFFFFF));
+		bytiffy_uint64(e_padd + entry + 8, dentry->mtime);
 		uint16_t newlen = strlen(dir) + strlen(dentry->name) + 1;
-		if (newlen > 256) {
+		if (newlen > 256)
 			clbk_show_error("Filepath too long");
-			while (1)
-				;
-		}
-		// We null the rest of the entry here
-		strncpy((char *)(e_padd + entry + 16), dir, entry_size - 16);
+		strcpy((char *)(e_padd + entry + 16), dir);
 		strcpy((char *)(e_padd + entry + 16 + strlen(dir)),
 		       dentry->name);
 		// Zero out the rest
 		for (int i = e_padd + newlen + 16; i < sizeof(entry); i++)
 			entry[i] = 0;
 		LOG("Full path is %s, type %c\n", e_padd + entry + 16,
-		    entry[0 + e_padd]);
+		    entry[e_padd]);
 		encrypted_send(entry, e_padd + entry_size);
 		if (dentry->dir) {
 			// TODO Different types of allocations if vlas aren't
@@ -120,12 +113,10 @@ void handle_transfer(uint8_t *transfer_req, char *base_dirs[])
 			clbk_show_error(" not within base dir");
 		}
 		// Just so this isn't stack allocated
-		static uint8_t transfer_buffer[e_padd + transfer_size];
+		static uint8_t transfer_buffer[e_padd + transfer_size] = {0};
 		uint32_t size = clbk_file_size((char *)transfer_req + 1);
 		LOG("File size is %li\n", size);
 		if (transfer_req[0] == 'f') {
-			for (int i = 0; i < e_padd; i++)
-				transfer_buffer[i] = 0;
 			bytiffy_uint32(transfer_buffer + e_padd, size);
 			encrypted_send(transfer_buffer, e_padd + 4);
 			LOG("Sent file size\n");
@@ -153,11 +144,12 @@ void handle_transfer(uint8_t *transfer_req, char *base_dirs[])
 				encrypted_send(transfer_buffer, e_padd + read);
 			}
 		}
-		printf("Left %i\n", read);
+		// printf("Left %i\n", read);
 		h = murmur3_32_finalize(h, transfer_buffer + e_padd, read,
 					size);
 		if (transfer_req[0] == 'f') {
-			encrypted_send(transfer_buffer, e_padd + read);
+			if (read != 0)
+				encrypted_send(transfer_buffer, e_padd + read);
 			LOG("Sent file %s\n", (char *)transfer_req + 1);
 		}
 		bytiffy_uint32(transfer_buffer + e_padd, h);
@@ -188,4 +180,10 @@ void bytiffy_uint32(uint8_t *dest, uint32_t val)
 	(dest)[1] = (val >> 8) & 0xFF;
 	(dest)[2] = (val >> 16) & 0xFF;
 	(dest)[3] = (val >> 24) & 0xFF;
+}
+
+void bytiffy_uint64(uint8_t *dest, uint64_t val)
+{
+	bytiffy_uint32(dest, val & 0xFFFFFFFF);
+	bytiffy_uint32(dest, (val >> 32) & 0xFFFFFFFF);
 }

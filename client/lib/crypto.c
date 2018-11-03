@@ -55,8 +55,8 @@ void encrypted_begin_communication(char *id, char *key)
 		LOG("Generating client side nonce\n");
 		uint8_t hash_in[crypto_secretbox_NONCEBYTES * 2];
 		for (int i = 0; i < crypto_secretbox_NONCEBYTES; i++)
-
 			hash_in[i] = nonceb[i];
+
 		clbk_get_random(hash_in + crypto_secretbox_NONCEBYTES,
 				crypto_secretbox_NONCEBYTES);
 
@@ -118,29 +118,38 @@ void increase_nonce(uint8_t *n)
 	}
 }
 
+static uint8_t enc_buffer[crypto_max_size];
 // First crypto_secretbox_ZEROBYTES have to be 0
 void encrypted_send(uint8_t *data, int size)
 {
+	if (size >= crypto_max_size)
+		clbk_show_error("Too large for crypto buffer");
+	if (size < crypto_secretbox_ZEROBYTES)
+		clbk_show_error("Too small for crypto sending");
+	for (int i = 0; i < crypto_secretbox_ZEROBYTES; i++)
+		if (data[i] != 0)
+			clbk_show_error("First bytes not nulled");
 	increase_nonce(n_send);
-	uint8_t enc[size];
 	// BOXZEROBYTES are never sent over the wire
-	if (crypto_secretbox(enc, data, size, n_send, k) != 0)
+	if (crypto_secretbox(enc_buffer, data, size, n_send, k) != 0)
 		clbk_show_error("Couldn't encrypt data to send");
-	clbk_send(enc + crypto_secretbox_BOXZEROBYTES,
+	clbk_send(enc_buffer + crypto_secretbox_BOXZEROBYTES,
 		  size - crypto_secretbox_BOXZEROBYTES);
+	clbk_delay(255);
 }
 
 // First crypto_secretbox_ZEROBYTES are going to be 0
 void encrypted_receive(uint8_t *data, int size)
 {
+	if (size >= crypto_max_size)
+		clbk_show_error("Too large for crypto buffer");
 	increase_nonce(n_recv);
-	uint8_t enc[size];
 	// BOXZEROBYTES are never sent over the wire
-	receive_exact(enc + crypto_secretbox_BOXZEROBYTES,
+	receive_exact(enc_buffer + crypto_secretbox_BOXZEROBYTES,
 		      size - crypto_secretbox_BOXZEROBYTES);
 	for (int i = 0; i < crypto_secretbox_BOXZEROBYTES; i++)
-		enc[i] = 0;
-	if (crypto_secretbox_open(data, enc, size, n_recv, k) != 0)
+		enc_buffer[i] = 0;
+	if (crypto_secretbox_open(data, enc_buffer, size, n_recv, k) != 0)
 		clbk_show_error("Couldn't decrypt received data");
 }
 

@@ -66,7 +66,8 @@ char *skipnr(char *text, char *end)
 int config_parse(char *file)
 {
 	LOG("Opening config\n");
-	clbk_open(file);
+	if (clbk_open(file) != 0)
+		return -4;
 	// For the final NULL Byte
 	char buffer[config_size + 1];
 	char *text = (char *)buffer;

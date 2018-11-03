@@ -319,7 +319,7 @@ fn download_file(
 
         let read_buffer = enc_comm
             .receive(read_size as usize)
-            .context("Receiving download jile fragment")?;
+            .context("Receiving download file fragment")?;
         hasher.write(&read_buffer);
         file.write(&read_buffer)
             .context("Writing download file fragment to file")?;

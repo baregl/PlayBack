@@ -50,6 +50,4 @@ void clbk_get_random(uint8_t *data, uint8_t len);
 // When returning, close the open file & TCP connection
 // Dirs array ends with a NULL pointer
 void syncer_run(char *dirs[], char *devname, char *devid, char *ver, char *key);
-
-void receive_exact(uint8_t *data, uint32_t length);
 #endif // __SYNCER_H_

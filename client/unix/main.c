@@ -89,7 +89,10 @@ void clbk_send(uint8_t *data, uint32_t length)
 
 uint32_t clbk_receive(uint8_t *data, uint32_t length)
 {
-	return read(tcp_connection, data, length);
+	int ret = read(tcp_connection, data, length);
+	if (ret == -1)
+		clbk_show_error("Read error");
+	return ret;
 }
 
 // Open file for reading, close previous

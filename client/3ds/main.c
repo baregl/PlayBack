@@ -77,8 +77,7 @@ int main(void)
 	threadCreate(apt_thread, NULL, 0x1000, 0x30, -1, true);
 
 	if (config_parse("sdmc:/plybck.cfg") != 0) {
-		printf("Couldn't parse config\n");
-		exit(-1);
+		clbk_show_error("Couldn't parse config");
 	}
 	if (server == NULL || enc_key == NULL || dirs == NULL || name == NULL) {
 		printf("Missing config parameters\n");
@@ -122,7 +121,10 @@ void clbk_send(uint8_t *data, uint32_t length)
 
 uint32_t clbk_receive(uint8_t *data, uint32_t length)
 {
-	return read(tcp_connection, data, length);
+	int ret = read(tcp_connection, data, length);
+	if (ret == -1)
+		clbk_show_error("Read error");
+	return ret;
 }
 
 // Open file for reading, close previous
@@ -132,8 +134,6 @@ int clbk_open(char *path)
 	if (open_file != -1)
 		close(open_file);
 	open_file = open(path, O_RDONLY);
-	if (open_file == -1) {
-	}
 	return (open_file == -1) ? open_file : 0;
 }
 
@@ -223,9 +223,10 @@ void clbk_show_error(char *msg)
 		close(open_file);
 	if (tcp_connection != -1)
 		close(tcp_connection);
+	svcSleepThread(1000000000);
 	printf("\nPress B to exit\n");
 
-	while (aptMainLoop()) {
+	while (1) {
 		gspWaitForVBlank();
 		hidScanInput();
 
@@ -276,7 +277,7 @@ void add_dir(char *dir, char ***dirs, int *dirs_len)
 
 void clbk_delay(uint8_t ms)
 {
-	svcSleepThread(ms * 1000000);
+	svcSleepThread(ms * 1000 * 1000);
 }
 
 void clbk_get_random(uint8_t *data, uint8_t len)

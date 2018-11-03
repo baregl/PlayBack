@@ -10,7 +10,8 @@ enum constants {
 	transfer_req_size = 257,
 	transfer_size = 0x10000,
 	config_size = 2048,
-	data_timeout = 500,
+	data_timeout = 5000,
+	crypto_max_size = 0x11000,
 };
 
 #endif // __CONSTANTS_H_
