@@ -64,23 +64,23 @@ char *skipnr(char *text, char *end)
 	return text;
 }
 
-int config_parse(char *file)
+void config_parse(char *file)
 {
 	LOG("Opening config\n");
 	uint32_t size = clbk_file_size(file);
 	if (size > config_max_size)
-		return -5;
+		clbk_show_error("Config file too large");
 	if (clbk_open(file) != 0)
-		return -4;
+		clbk_show_error("Couldn't open config file");
 	// For the final NULL Byte
 	char *buffer = (char *)malloc(size + 1);
 	char *text = (char *)buffer;
 	LOG("Reading config\n");
 	uint16_t read_len = clbk_read((uint8_t *)buffer, size);
 	LOG("Read config\n");
-	if (read_len > size)
+	if (read_len != size)
 		// Too long
-		return -2;
+		clbk_show_error("Unexpectedly the config file size changed");
 	LOG("Writing final newline at %i\n", read_len);
 	buffer[read_len] = '\n';
 	LOG("Finding eof\n");
@@ -92,13 +92,13 @@ int config_parse(char *file)
 
 		text = skipnons(text, end);
 		if (text == end)
-			return -1;
+			clbk_show_error("Config for key missing");
 
 		*text++ = 0;
 
 		text = skips(text, end);
 		if (text == end)
-			return -1;
+			clbk_show_error("Config for key missing");
 
 		char *value = text;
 
@@ -113,5 +113,4 @@ int config_parse(char *file)
 		text = skipnr(text, end);
 	}
 	free(buffer);
-	return 0;
 }

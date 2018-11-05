@@ -76,9 +76,7 @@ int main(void)
 	// Start apt thread, so we can exit
 	threadCreate(apt_thread, NULL, 0x1000, 0x30, -1, true);
 
-	if (config_parse("sdmc:/plybck.cfg") != 0) {
-		clbk_show_error("Couldn't parse config");
-	}
+	config_parse("sdmc:/plybck.cfg");
 	if (server == NULL || enc_key == NULL || dirs == NULL || name == NULL) {
 		printf("Missing config parameters\n");
 	}

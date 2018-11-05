@@ -58,9 +58,7 @@ int main(void)
 	psvDebugScreenInit();
 	psvDebugScreenClear(0);
 
-	if (config_parse("ux0:/data/plybck.cfg") != 0) {
-		clbk_show_error("Couldn't parse config");
-	}
+	config_parse("ux0:/data/plybck.cfg");
 
 	if (server == NULL || enc_key == NULL || dirs == NULL || name == NULL) {
 		clbk_show_error("Missing config parameters");
