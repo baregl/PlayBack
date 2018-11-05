@@ -29,6 +29,7 @@
 
 #include "constants.h"
 #include "syncer.h"
+#include <stdlib.h>
 #include <strings.h>
 
 char *skipnons(char *text, char *end)
@@ -66,19 +67,21 @@ char *skipnr(char *text, char *end)
 int config_parse(char *file)
 {
 	LOG("Opening config\n");
+	uint32_t size = clbk_file_size(file);
+	if (size > config_max_size)
+		return -5;
 	if (clbk_open(file) != 0)
 		return -4;
 	// For the final NULL Byte
-	char buffer[config_size + 1];
+	char *buffer = (char *)malloc(size + 1);
 	char *text = (char *)buffer;
 	LOG("Reading config\n");
-	uint16_t read_len = clbk_read((uint8_t *)buffer, config_size - 1);
+	uint16_t read_len = clbk_read((uint8_t *)buffer, size);
 	LOG("Read config\n");
-	if (read_len == config_size)
+	if (read_len > size)
 		// Too long
 		return -2;
-	LOG("Writing final newline at %i with maximum length %i\n", read_len,
-	    config_size);
+	LOG("Writing final newline at %i\n", read_len);
 	buffer[read_len] = '\n';
 	LOG("Finding eof\n");
 	char *end = (char *)buffer + read_len + 1;
@@ -109,5 +112,6 @@ int config_parse(char *file)
 
 		text = skipnr(text, end);
 	}
+	free(buffer);
 	return 0;
 }
