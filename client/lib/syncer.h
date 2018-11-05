@@ -1,5 +1,6 @@
 #ifndef __SYNCER_H_
 #define __SYNCER_H_
+#include "config.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -49,5 +50,5 @@ void clbk_get_random(uint8_t *data, uint8_t len);
 
 // When returning, close the open file & TCP connection
 // Dirs array ends with a NULL pointer
-void syncer_run(char *dirs[], char *devname, char *devid, char *ver, char *key);
+void syncer_run(config_data *config, char *devname, char *ver);
 #endif // __SYNCER_H_

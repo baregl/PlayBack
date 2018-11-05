@@ -30,7 +30,10 @@
 #include "constants.h"
 #include "syncer.h"
 #include <stdlib.h>
-#include <strings.h>
+#include <string.h>
+
+void config_entry(config_data *data, char *key, char *val);
+void add_dir(char *dir, char ***dirs, int *dirs_len);
 
 char *skipnons(char *text, char *end)
 {
@@ -64,8 +67,9 @@ char *skipnr(char *text, char *end)
 	return text;
 }
 
-void config_parse(char *file)
+config_data *config_parse(char *file)
 {
+	config_data *data = calloc(1, sizeof(config_data));
 	LOG("Opening config\n");
 	uint32_t size = clbk_file_size(file);
 	if (size > config_max_size)
@@ -105,7 +109,7 @@ void config_parse(char *file)
 		text = skipnonnr(text, end);
 
 		*text++ = 0;
-		clbk_config_entry(key, value);
+		config_entry(data, key, value);
 		if (text == (end + 1)) {
 			break;
 		}
@@ -113,4 +117,36 @@ void config_parse(char *file)
 		text = skipnr(text, end);
 	}
 	free(buffer);
+
+	if (data->server == NULL || data->enc_key == NULL ||
+	    data->dirs == NULL || data->name == NULL)
+		printf("Missing config parameters\n");
+	return data;
+}
+
+void config_entry(config_data *data, char *key, char *val)
+{
+	int len = strlen(val) + 1;
+	char *val_owned = malloc(len);
+	memcpy(val_owned, val, len);
+	if (strcmp("dir", key) == 0)
+		add_dir(val_owned, &data->dirs, &data->dirs_len);
+	else if (strcmp("key", key) == 0)
+		data->enc_key = val_owned;
+	else if (strcmp("name", key) == 0)
+		data->name = val_owned;
+	else if (strcmp("server", key) == 0)
+		data->server = val_owned;
+	else if (clbk_config_entry(key, val) != 0) {
+		free(val_owned);
+		clbk_show_status("Unknown key");
+		clbk_show_error(key);
+	}
+}
+
+void add_dir(char *dir, char ***dirs, int *dirs_len)
+{
+	*dirs = realloc(*dirs, (*dirs_len + 2) * sizeof(**dirs));
+	(*dirs)[(*dirs_len)++] = dir;
+	(*dirs)[*dirs_len] = 0;
 }

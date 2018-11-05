@@ -12,18 +12,11 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-void add_dir(char *dir, char ***dirs, int *dirs_len);
-
 int tcp_connection = -1;
 int open_file = -1;
 int rand_file = -1;
 
 static const int PORT = 9483;
-char *server;
-char *enc_key;
-char *name;
-char **dirs = NULL;
-int dirs_len = 0;
 
 int main(int argc, char *argv[])
 {
@@ -38,11 +31,8 @@ int main(int argc, char *argv[])
 		exit(-1);
 	}
 
-	config_parse(argv[1]);
+	config_data *config = config_parse(argv[1]);
 
-	if (server == NULL || enc_key == NULL || dirs == NULL || name == NULL) {
-		printf("Missing config parameters\n");
-	}
 	// TCP Open
 	struct addrinfo hints, *infoptr;
 	memset(&hints, 0, sizeof(hints));
@@ -51,7 +41,7 @@ int main(int argc, char *argv[])
 	hints.ai_socktype = SOCK_STREAM;
 	char portbuf[6];
 	sprintf(portbuf, "%d", PORT);
-	if (getaddrinfo(server, portbuf, &hints, &infoptr))
+	if (getaddrinfo(config->server, portbuf, &hints, &infoptr))
 		clbk_show_error("Couldn't resolve server address");
 
 	int cret = -1;
@@ -70,7 +60,7 @@ int main(int argc, char *argv[])
 	if (tcp_connection == -1 || cret == -1)
 		clbk_show_error("Connect to server failed");
 	LOG("Starting sync\n");
-	syncer_run(dirs, "samplecl", name, "0.1", enc_key);
+	syncer_run(config, "samplecl", "0.1");
 
 	close(open_file);
 	close(rand_file);
@@ -194,30 +184,9 @@ void clbk_show_status(char *status)
 	printf("%s", status);
 }
 
-void clbk_config_entry(char *key, char *val)
+int clbk_config_entry(char *key, char *val)
 {
-	int len = strlen(val) + 1;
-	char *data = malloc(len);
-	memcpy(data, val, len);
-	if (strcmp("dir", key) == 0)
-		add_dir(data, &dirs, &dirs_len);
-	else if (strcmp("key", key) == 0)
-		enc_key = data;
-	else if (strcmp("name", key) == 0)
-		name = data;
-	else if (strcmp("server", key) == 0)
-		server = data;
-	else {
-		free(data);
-		printf("Unknown key %s\n", key);
-	}
-}
-
-void add_dir(char *dir, char ***dirs, int *dirs_len)
-{
-	*dirs = realloc(*dirs, (*dirs_len + 2) * sizeof(**dirs));
-	(*dirs)[(*dirs_len)++] = dir;
-	(*dirs)[*dirs_len] = 0;
+	return -1;
 }
 
 void clbk_delay(uint8_t ms)

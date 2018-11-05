@@ -1,5 +1,6 @@
 #include "syncer.h"
 
+#include "config.h"
 #include "constants.h"
 #include "crypto.h"
 #include "murmur3.h"
@@ -14,15 +15,15 @@ bool check_in_base_dirs(char *dir, char **base_dirs);
 void bytiffy_uint32(uint8_t *dest, uint32_t val);
 void bytiffy_uint64(uint8_t *dest, uint64_t val);
 
-void syncer_run(char **dirs, char *devname, char *devid, char *ver, char *key)
+void syncer_run(config_data *config, char *devname, char *ver)
 {
 	// TODO Handle dir ending without '/'
-	encrypted_begin_communication(devid, key);
+	encrypted_begin_communication(config->name, config->enc_key);
 	send_header(devname, ver);
 	LOG("Sending entries\n");
 	clbk_show_status("Sending entries\n");
-	for (int i = 0; dirs[i] != NULL; i++)
-		send_dir(dirs[i]);
+	for (int i = 0; config->dirs[i] != NULL; i++)
+		send_dir(config->dirs[i]);
 	LOG("Sending end of entries\n");
 	uint8_t entry[e_padd + entry_size] = {0};
 	// Iterate over directory
@@ -36,7 +37,7 @@ void syncer_run(char **dirs, char *devname, char *devid, char *ver, char *key)
 	do {
 		encrypted_receive(transfer_req, e_padd + transfer_req_size);
 		LOG("Received request\n");
-		handle_transfer(transfer_req + e_padd, dirs);
+		handle_transfer(transfer_req + e_padd, config->dirs);
 	} while (transfer_req[e_padd] != 'e');
 	clbk_show_status("Done\n");
 }

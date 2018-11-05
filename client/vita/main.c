@@ -32,7 +32,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-void add_dir(char *dir, char ***dirs, int *dirs_len);
 static int power_thread(SceSize args, void *argp);
 
 int tcp_connection = -1;
@@ -40,11 +39,6 @@ int open_file = -1;
 static volatile int g_power_lock;
 
 static const int PORT = 9483;
-char *server;
-char *enc_key;
-char *name;
-char **dirs = NULL;
-int dirs_len = 0;
 
 int main(void)
 {
@@ -58,17 +52,14 @@ int main(void)
 	psvDebugScreenInit();
 	psvDebugScreenClear(0);
 
-	config_parse("ux0:/data/plybck.cfg");
+	config_data *config = config_parse("ux0:/data/plybck.cfg");
 
-	if (server == NULL || enc_key == NULL || dirs == NULL || name == NULL) {
-		clbk_show_error("Missing config parameters");
-	}
 	static char net_mem[1 * 1024 * 1024];
 	sceSysmoduleLoadModule(SCE_SYSMODULE_NET);
 	sceNetInit(&(SceNetInitParam){net_mem, sizeof(net_mem), 0});
 	tcp_connection = socket(PF_INET, SOCK_STREAM, 0);
 	struct hostent *host;
-	if ((host = gethostbyname(server)) == NULL) {
+	if ((host = gethostbyname(config->server)) == NULL) {
 		clbk_show_error("Couldn't resove server");
 	}
 	int cret = connect(tcp_connection,
@@ -81,7 +72,7 @@ int main(void)
 	if (tcp_connection == -1 || cret == -1)
 		clbk_show_error("Connect to server failed");
 	LOG("Starting sync\n");
-	syncer_run(dirs, "vita", name, "0.1", enc_key);
+	syncer_run(config, "vita", "0.1");
 	close(open_file);
 	close(tcp_connection);
 	sceNetTerm();
@@ -217,30 +208,9 @@ void clbk_show_status(char *status)
 	printf("%s", status);
 }
 
-void clbk_config_entry(char *key, char *val)
+int clbk_config_entry(char *key, char *val)
 {
-	int len = strlen(val) + 1;
-	char *data = malloc(len);
-	memcpy(data, val, len);
-	if (strcmp("dir", key) == 0)
-		add_dir(data, &dirs, &dirs_len);
-	else if (strcmp("key", key) == 0)
-		enc_key = data;
-	else if (strcmp("name", key) == 0)
-		name = data;
-	else if (strcmp("server", key) == 0)
-		server = data;
-	else {
-		free(data);
-		printf("Unknown key %s\n", key);
-	}
-}
-
-void add_dir(char *dir, char ***dirs, int *dirs_len)
-{
-	*dirs = realloc(*dirs, (*dirs_len + 2) * sizeof(**dirs));
-	(*dirs)[(*dirs_len)++] = dir;
-	(*dirs)[*dirs_len] = 0;
+	return -1;
 }
 
 void clbk_delay(uint8_t ms)

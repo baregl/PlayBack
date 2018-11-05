@@ -24,17 +24,10 @@
 
 static uint32_t *SOC_buffer = NULL;
 
-char buffer[1024 * 1024];
-
 int tcp_connection = -1;
 int open_file = -1;
 
 static const int PORT = 9483;
-char *server;
-char *enc_key;
-char *name;
-char **dirs = NULL;
-int dirs_len = 0;
 
 void socShutdown(void);
 void apt_thread(void *);
@@ -76,14 +69,12 @@ int main(void)
 	// Start apt thread, so we can exit
 	threadCreate(apt_thread, NULL, 0x1000, 0x30, -1, true);
 
-	config_parse("sdmc:/plybck.cfg");
-	if (server == NULL || enc_key == NULL || dirs == NULL || name == NULL) {
-		printf("Missing config parameters\n");
-	}
+	config_data *config = config_parse("sdmc:/plybck.cfg");
+
 	LOG("Opening TCP Connection\n");
 	tcp_connection = socket(PF_INET, SOCK_STREAM, 0);
 	struct hostent *host;
-	if ((host = gethostbyname(server)) == NULL) {
+	if ((host = gethostbyname(config->server)) == NULL) {
 		clbk_show_error("Couldn't resove server");
 	}
 	int cret = connect(tcp_connection,
@@ -96,7 +87,7 @@ int main(void)
 	if (tcp_connection == -1 || cret == -1)
 		clbk_show_error("Connect to server failed");
 	LOG("Starting sync\n");
-	syncer_run(dirs, "3ds", name, "0.1", enc_key);
+	syncer_run(config, "3ds", "0.1");
 
 	close(open_file);
 	shutdown(tcp_connection, SHUT_RDWR);
@@ -239,23 +230,9 @@ void clbk_show_status(char *status)
 	printf("%s", status);
 }
 
-void clbk_config_entry(char *key, char *val)
+int clbk_config_entry(char *key, char *val)
 {
-	int len = strlen(val) + 1;
-	char *data = malloc(len);
-	memcpy(data, val, len);
-	if (strcmp("dir", key) == 0)
-		add_dir(data, &dirs, &dirs_len);
-	else if (strcmp("key", key) == 0)
-		enc_key = data;
-	else if (strcmp("name", key) == 0)
-		name = data;
-	else if (strcmp("server", key) == 0)
-		server = data;
-	else {
-		free(data);
-		printf("Unknown key %s\n", key);
-	}
+	return -1;
 }
 
 void socShutdown(void)
@@ -264,13 +241,6 @@ void socShutdown(void)
 		close(open_file);
 	if (tcp_connection != -1)
 		close(tcp_connection);
-}
-
-void add_dir(char *dir, char ***dirs, int *dirs_len)
-{
-	*dirs = realloc(*dirs, (*dirs_len + 2) * sizeof(**dirs));
-	(*dirs)[(*dirs_len)++] = dir;
-	(*dirs)[*dirs_len] = 0;
 }
 
 void clbk_delay(uint8_t ms)
