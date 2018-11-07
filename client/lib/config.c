@@ -141,6 +141,8 @@ void config_entry(config_data *data, char *key, char *val)
 		data->name = val_owned;
 	else if (strcmp("server", key) == 0)
 		data->server = val_owned;
+	else if (strcmp("#", key) == 0)
+		free(val_owned);
 	else if (clbk_config_entry(key, val) != 0) {
 		free(val_owned);
 		clbk_show_status("Unknown key");
