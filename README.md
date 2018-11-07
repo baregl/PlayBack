@@ -79,6 +79,7 @@ You can only change or upload new files to the server, not read existing ones.
   - PKGJ for the config parser by Philippe Daouadi (BSD 2-Clause)
   - Murmur3 for file hash by Austin Appleby from qLibc ported by Seungyoung Kim (BSD 2-Clause)
   - Tweetnacl for cryptographic functions by djb and others (public domain)
+  - RecursiveRegexRaptor for the regex engine by nasciiboy (GPLv3)
 - Vita client
   - Vitasdk by vitasdk (MIT/GPLv3)
 - 3ds client

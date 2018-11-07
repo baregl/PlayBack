@@ -7,7 +7,8 @@ typedef struct {
 	char *server;
 	char *enc_key;
 	char **dirs;
-	int dirs_len;
+	char **ignore;
+	char **update;
 } config_data;
 
 //  Returns -1 for config errors, -2 if it is too long, 0 for success

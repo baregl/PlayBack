@@ -210,7 +210,9 @@ fn check_existing(base: &path::Path, entry: &parse::Entry) -> Result<FileState, 
     if let Ok(attr) = fs::metadata(&full_path) {
         if attr.len() == u64::from(entry.size) {
             let mtime = FileTime::from_last_modification_time(&attr).unix_seconds() as u64;
-            if mtime == entry.mtime {
+            if mtime == 0 {
+                Ok(FileState::WrongTime)
+            } else if mtime == entry.mtime {
                 Ok(FileState::Matches)
             } else {
                 Ok(FileState::WrongTime)

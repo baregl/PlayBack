@@ -50,6 +50,7 @@ Detailed in CRYPTO.md
   - Doesn't have to be exact (eg. Timezones/leap seconds)
   - Must be consistent (no fluctuations)
   - Should roughly match (~day)
+  - If it's 0, force a hash check
 
 - Path (256)
 

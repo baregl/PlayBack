@@ -4,14 +4,16 @@
 #include "constants.h"
 #include "crypto.h"
 #include "murmur3.h"
+#include "regexp3.h"
 #include "tweetnacl.h"
 #include <stdlib.h>
 #include <string.h>
 
 void send_header(char *devname, char *ver);
-void send_dir(char *dir);
+void send_dir(char *dir, char **ignore, char **update);
 void handle_transfer(uint8_t *transfer_req, char **base_dirs);
 bool check_in_base_dirs(char *dir, char **base_dirs);
+bool check_regexps(char *file, char **regexps);
 void bytiffy_uint32(uint8_t *dest, uint32_t val);
 void bytiffy_uint64(uint8_t *dest, uint64_t val);
 
@@ -23,7 +25,7 @@ void syncer_run(config_data *config, char *devname, char *ver)
 	LOG("Sending entries\n");
 	clbk_show_status("Sending entries\n");
 	for (int i = 0; config->dirs[i] != NULL; i++)
-		send_dir(config->dirs[i]);
+		send_dir(config->dirs[i], config->ignore, config->update);
 	LOG("Sending end of entries\n");
 	uint8_t entry[e_padd + entry_size] = {0};
 	// Iterate over directory
@@ -52,7 +54,7 @@ void send_header(char *devname, char *ver)
 	encrypted_send(data, sizeof(data));
 }
 
-void send_dir(char *dir)
+void send_dir(char *dir, char **ignore, char **update)
 {
 	LOG("Opening %s\n", dir);
 	void *dird = clbk_open_dir(dir);
@@ -69,7 +71,7 @@ void send_dir(char *dir)
 		if ((!strcmp(".", dentry->name)) ||
 		    (!strcmp("..", dentry->name)))
 			continue;
-		LOG("sending entry %s\n", dentry->name);
+		LOG("processing entry %s\n", dentry->name);
 		// So we can have a final \0
 		static uint8_t entry[e_padd + entry_size + 1] = {0};
 		// The upper bytes are 0
@@ -90,16 +92,23 @@ void send_dir(char *dir)
 			entry[i] = 0;
 		LOG("Full path is %s, type %c\n", e_padd + entry + 16,
 		    entry[e_padd]);
+		if (check_regexps(e_padd + entry + 16, ignore)) {
+			LOG("Skipping %s\n", e_padd + entry + 16);
+			continue;
+		} else if (check_regexps(e_padd + entry + 16, update)) {
+			LOG("Force updating %s\n", e_padd + entry + 16);
+			bytiffy_uint64(e_padd + entry + 8, 0);
+		}
 		encrypted_send(entry, e_padd + entry_size);
 		if (dentry->dir) {
-			// TODO Different types of allocations if vlas aren't
-			// supported
+			// TODO Different types of allocations if vlas
+			// aren't supported
 			char path[newlen + 1];
 			memcpy(path, entry + 16 + e_padd, newlen);
 			// TODO Remove plattform specific file separator
 			path[newlen - 1] = '/';
 			path[newlen] = 0;
-			send_dir(path);
+			send_dir(path, ignore, update);
 		}
 	}
 	clbk_close_dir(dird);
@@ -168,7 +177,16 @@ bool check_in_base_dirs(char *dir, char **base_dirs)
 	return false;
 }
 
-// tweetnacl wants a randombyte function, which isn't needed for our purposes
+bool check_regexps(char *file, char **regexps)
+{
+	for (int i = 0; regexps[i] != NULL; i++)
+		if (regexp3(file, regexps[i]) != 0)
+			return true;
+	return false;
+}
+
+// tweetnacl wants a randombyte function, which isn't needed for our
+// purposes
 void randombytes(uint8_t *a, uint64_t b)
 {
 	clbk_show_error("called randombytes, usually not needed, just here for "

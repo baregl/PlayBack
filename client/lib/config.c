@@ -33,7 +33,7 @@
 #include <string.h>
 
 void config_entry(config_data *data, char *key, char *val);
-void add_dir(char *dir, char ***dirs, int *dirs_len);
+void add_item(char *item, char ***items);
 
 char *skipnons(char *text, char *end)
 {
@@ -130,7 +130,11 @@ void config_entry(config_data *data, char *key, char *val)
 	char *val_owned = malloc(len);
 	memcpy(val_owned, val, len);
 	if (strcmp("dir", key) == 0)
-		add_dir(val_owned, &data->dirs, &data->dirs_len);
+		add_item(val_owned, &data->dirs);
+	else if (strcmp("ignore", key) == 0)
+		add_item(val_owned, &data->ignore);
+	else if (strcmp("update", key) == 0)
+		add_item(val_owned, &data->update);
 	else if (strcmp("key", key) == 0)
 		data->enc_key = val_owned;
 	else if (strcmp("name", key) == 0)
@@ -144,9 +148,14 @@ void config_entry(config_data *data, char *key, char *val)
 	}
 }
 
-void add_dir(char *dir, char ***dirs, int *dirs_len)
+void add_item(char *item, char ***items)
 {
-	*dirs = realloc(*dirs, (*dirs_len + 2) * sizeof(**dirs));
-	(*dirs)[(*dirs_len)++] = dir;
-	(*dirs)[*dirs_len] = 0;
+	int len;
+	// Sanity check
+	for (len = 0; len < 500; len++)
+		if ((*items)[len] == 0)
+			break;
+	*items = realloc(*items, (len + 2) * sizeof(**items));
+	(*items)[len] = item;
+	(*items)[len + 1] = 0;
 }
