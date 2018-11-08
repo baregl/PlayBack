@@ -47,11 +47,12 @@ void syncer_run(config_data *config, char *devname, char *ver)
 void send_header(char *devname, char *ver)
 {
 	LOG("Assembling header\n");
-	uint8_t data[e_padd + 16] = {0};
-	strncpy((char *)data + e_padd, devname, 8);
-	strncpy((char *)data + e_padd + 8, ver, 8);
+	uint8_t padd_data[e_padd + 16] = {0};
+	uint8_t *data = padd_data + e_padd;
+	strncpy((char *)data, devname, 8);
+	strncpy((char *)data + 8, ver, 8);
 	LOG("Sending header\n");
-	encrypted_send(data, sizeof(data));
+	encrypted_send(padd_data, sizeof(padd_data));
 }
 
 void send_dir(char *dir, char **ignore, char **update)
@@ -73,38 +74,36 @@ void send_dir(char *dir, char **ignore, char **update)
 			continue;
 		LOG("processing entry %s\n", dentry->name);
 		// So we can have a final \0
-		static uint8_t entry[e_padd + entry_size + 1] = {0};
+		static uint8_t padd_entry[e_padd + entry_size + 1] = {0};
+		uint8_t *entry = padd_entry + e_padd;
 		// The upper bytes are 0
-		bytiffy_uint32(e_padd + entry,
-			       (uint32_t)(dentry->dir ? 'd' : 'f'));
+		bytiffy_uint32(entry, (uint32_t)(dentry->dir ? 'd' : 'f'));
 		LOG("with size: %li, mtime %lli\n", dentry->size,
 		    dentry->mtime);
-		bytiffy_uint32(e_padd + entry + 4, dentry->size);
-		bytiffy_uint64(e_padd + entry + 8, dentry->mtime);
+		bytiffy_uint32(entry + 4, dentry->size);
+		bytiffy_uint64(entry + 8, dentry->mtime);
 		uint16_t newlen = strlen(dir) + strlen(dentry->name) + 1;
 		if (newlen > 256)
 			clbk_show_error("Filepath too long");
-		strcpy((char *)(e_padd + entry + 16), dir);
-		strcpy((char *)(e_padd + entry + 16 + strlen(dir)),
-		       dentry->name);
+		strcpy((char *)(entry + 16), dir);
+		strcpy((char *)(entry + 16 + strlen(dir)), dentry->name);
 		// Zero out the rest
-		for (int i = e_padd + newlen + 16; i < sizeof(entry); i++)
+		for (int i = newlen + 16; i < sizeof(padd_entry) - e_padd; i++)
 			entry[i] = 0;
-		LOG("Full path is %s, type %c\n", e_padd + entry + 16,
-		    entry[e_padd]);
-		if (check_regexps(e_padd + entry + 16, ignore)) {
-			LOG("Skipping %s\n", e_padd + entry + 16);
+		LOG("Full path is %s, type %c\n", entry + 16, entry[0]);
+		if (check_regexps((char *)entry + 16, ignore)) {
+			LOG("Skipping %s\n", entry + 16);
 			continue;
-		} else if (check_regexps(e_padd + entry + 16, update)) {
-			LOG("Force updating %s\n", e_padd + entry + 16);
-			bytiffy_uint64(e_padd + entry + 8, 0);
+		} else if (check_regexps((char *)entry + 16, update)) {
+			LOG("Force updating %s\n", entry + 16);
+			bytiffy_uint64(entry + 8, 0);
 		}
-		encrypted_send(entry, e_padd + entry_size);
+		encrypted_send(padd_entry, e_padd + entry_size);
 		if (dentry->dir) {
 			// TODO Different types of allocations if vlas
 			// aren't supported
 			char path[newlen + 1];
-			memcpy(path, entry + 16 + e_padd, newlen);
+			memcpy(path, entry + 16, newlen);
 			// TODO Remove plattform specific file separator
 			path[newlen - 1] = '/';
 			path[newlen] = 0;
@@ -123,12 +122,14 @@ void handle_transfer(uint8_t *transfer_req, char *base_dirs[])
 			clbk_show_error(" not within base dir");
 		}
 		// Just so this isn't stack allocated
-		static uint8_t transfer_buffer[e_padd + transfer_size] = {0};
+		static uint8_t padd_transfer_buffer[e_padd + transfer_size] = {
+		    0};
+		uint8_t *transfer_buffer = padd_transfer_buffer + e_padd;
 		uint32_t size = clbk_file_size((char *)transfer_req + 1);
 		LOG("File size is %li\n", size);
 		if (transfer_req[0] == 'f') {
-			bytiffy_uint32(transfer_buffer + e_padd, size);
-			encrypted_send(transfer_buffer, e_padd + 4);
+			bytiffy_uint32(transfer_buffer, size);
+			encrypted_send(padd_transfer_buffer, e_padd + 4);
 			LOG("Sent file size\n");
 		}
 		if (clbk_open((char *)transfer_req + 1) == -1) {
@@ -146,24 +147,25 @@ void handle_transfer(uint8_t *transfer_req, char *base_dirs[])
 		clbk_show_status("\n");
 		// TODO This will break if the file was swapped out
 		// under us. For now, this is probably sufficient
-		while ((read = clbk_read(transfer_buffer + e_padd,
-					 transfer_size)) == transfer_size) {
-			h = murmur3_32_step(h, transfer_buffer + e_padd, read);
+		while ((read = clbk_read(transfer_buffer, transfer_size)) ==
+		       transfer_size) {
+			h = murmur3_32_step(h, transfer_buffer, read);
 			if (transfer_req[0] == 'f') {
 				// The first ZEROBYTES are already zero
-				encrypted_send(transfer_buffer, e_padd + read);
+				encrypted_send(padd_transfer_buffer,
+					       e_padd + read);
 			}
 		}
 		// printf("Left %i\n", read);
-		h = murmur3_32_finalize(h, transfer_buffer + e_padd, read,
-					size);
+		h = murmur3_32_finalize(h, transfer_buffer, read, size);
 		if (transfer_req[0] == 'f') {
 			if (read != 0)
-				encrypted_send(transfer_buffer, e_padd + read);
+				encrypted_send(padd_transfer_buffer,
+					       e_padd + read);
 			LOG("Sent file %s\n", (char *)transfer_req + 1);
 		}
-		bytiffy_uint32(transfer_buffer + e_padd, h);
-		encrypted_send(transfer_buffer, e_padd + 4);
+		bytiffy_uint32(transfer_buffer, h);
+		encrypted_send(padd_transfer_buffer, e_padd + 4);
 		LOG("Sent checksum %lx\n", h);
 	}
 }
