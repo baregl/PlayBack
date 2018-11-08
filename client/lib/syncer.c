@@ -4,7 +4,7 @@
 #include "constants.h"
 #include "crypto.h"
 #include "murmur3.h"
-#include "regexp3.h"
+#include "regex.h"
 #include "tweetnacl.h"
 #include <stdlib.h>
 #include <string.h>
@@ -144,8 +144,8 @@ void handle_transfer(uint8_t *transfer_req, char *base_dirs[])
 			clbk_show_status("Sending ");
 		clbk_show_status((char *)transfer_req + 1);
 		clbk_show_status("\n");
-		// TODO This will break if the file was swapped out under us.
-		// For now, this is probably sufficient
+		// TODO This will break if the file was swapped out
+		// under us. For now, this is probably sufficient
 		while ((read = clbk_read(transfer_buffer + e_padd,
 					 transfer_size)) == transfer_size) {
 			h = murmur3_32_step(h, transfer_buffer + e_padd, read);
@@ -180,7 +180,7 @@ bool check_in_base_dirs(char *dir, char **base_dirs)
 bool check_regexps(char *file, char **regexps)
 {
 	for (int i = 0; regexps[i] != NULL; i++)
-		if (regexp3(file, regexps[i]) != 0)
+		if (regexp(regexps[i], file) != 0)
 			return true;
 	return false;
 }
