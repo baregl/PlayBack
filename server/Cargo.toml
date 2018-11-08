@@ -17,3 +17,7 @@ serde = "1"
 serde_derive = "1"
 nom = "4"
 sodiumoxide = "0.1"
+
+[features]
+# This is for debugging. It disables (almost) all protections
+plaintext = []

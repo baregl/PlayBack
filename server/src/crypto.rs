@@ -76,22 +76,35 @@ impl Encrypted {
     }
 
     pub fn send(&mut self, data: &[u8]) -> Result<(), Error> {
-        self.snonce.increment_le_inplace();
-        self.snonce.increment_le_inplace();
-        let data = secretbox::seal(data, &self.snonce, &self.key);
-        self.stream.write(&data).context("Couldn't send data")?;
-        Ok(())
+        if cfg!(feature = "plaintext") {
+            self.stream.write(&data).context("Couldn't send data")?;
+            Ok(())
+        } else {
+            self.snonce.increment_le_inplace();
+            self.snonce.increment_le_inplace();
+            let data = secretbox::seal(data, &self.snonce, &self.key);
+            self.stream.write(&data).context("Couldn't send data")?;
+            Ok(())
+        }
     }
 
     pub fn receive(&mut self, size: usize) -> Result<Vec<u8>, Error> {
-        self.cnonce.increment_le_inplace();
-        self.cnonce.increment_le_inplace();
-        let mut enc_data = vec![0; size + secretbox::MACBYTES];
-        self.stream
-            .read_exact(&mut enc_data)
-            .context("Couldn't read data")?;
-        let data = secretbox::open(&enc_data, &self.cnonce, &self.key)
-            .map_err(|_| format_err!("Couldn't decrypt message"))?;
-        Ok(data)
+        if cfg!(feature = "plaintext") {
+            let mut data = vec![0; size];
+            self.stream
+                .read_exact(&mut data)
+                .context("Couldn't read data")?;
+            Ok(data)
+        } else {
+            self.cnonce.increment_le_inplace();
+            self.cnonce.increment_le_inplace();
+            let mut enc_data = vec![0; size + secretbox::MACBYTES];
+            self.stream
+                .read_exact(&mut enc_data)
+                .context("Couldn't read data")?;
+            let data = secretbox::open(&enc_data, &self.cnonce, &self.key)
+                .map_err(|_| format_err!("Couldn't decrypt message"))?;
+            Ok(data)
+        }
     }
 }

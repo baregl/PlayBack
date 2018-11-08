@@ -129,12 +129,16 @@ void encrypted_send(uint8_t *data, int size)
 	for (int i = 0; i < crypto_secretbox_ZEROBYTES; i++)
 		if (data[i] != 0)
 			clbk_show_error("First bytes not nulled");
+#ifndef plaintext
 	increase_nonce(n_send);
 	// BOXZEROBYTES are never sent over the wire
 	if (crypto_secretbox(enc_buffer, data, size, n_send, k) != 0)
 		clbk_show_error("Couldn't encrypt data to send");
 	clbk_send(enc_buffer + crypto_secretbox_BOXZEROBYTES,
 		  size - crypto_secretbox_BOXZEROBYTES);
+#else
+	clbk_send(data + e_padd, size - e_padd);
+#endif
 }
 
 // First crypto_secretbox_ZEROBYTES are going to be 0
@@ -142,6 +146,7 @@ void encrypted_receive(uint8_t *data, int size)
 {
 	if (size >= crypto_max_size)
 		clbk_show_error("Too large for crypto buffer");
+#ifndef plaintext
 	increase_nonce(n_recv);
 	// BOXZEROBYTES are never sent over the wire
 	receive_exact(enc_buffer + crypto_secretbox_BOXZEROBYTES,
@@ -150,6 +155,9 @@ void encrypted_receive(uint8_t *data, int size)
 		enc_buffer[i] = 0;
 	if (crypto_secretbox_open(data, enc_buffer, size, n_recv, k) != 0)
 		clbk_show_error("Couldn't decrypt received data");
+#else
+	receive_exact(data + e_padd, size - e_padd);
+#endif
 }
 
 void receive_exact(uint8_t *data, uint32_t length)
