@@ -9,7 +9,7 @@ If you're adventurous, you can try it, but please make sure:
 You should regularly make backups. For Everything. But for hacked consoles it
 isn't always that easy. In lots of cases (Vita, Original XBox, PS2), their files
 are basically only available via FTP, which can be slow and has to be driven by
-a computer. PlayBack is an easily implementable protocol, which can backup your
+a computer. PlayBack is a portable backup , which can backup your
 device to a server. Depending on the client, device-encrypted files may even be
 transparently decrypted, so you can continue playing on a seperate console.
 
@@ -28,6 +28,32 @@ the authentication of your client & server, but if you're on an untrustworthy
 network with people who can guess that key, all your files can be leaked.
 You can only change or upload new files to the server, not read existing ones.
 
+## Client config
+```
+# Comments are done with a leading '#' followed by a space
+
+# hostname or ip of the server
+server localhost
+# name of the device, done for identification
+name test
+# the encryption key, used for authentication & encryption
+# use something reasonably long (> 15 characters) & random
+key hunter2
+# the directorie(s) to synchronise
+dir fat:/apps/
+dir fat:/wbfs/
+# ignore pattern(s) for files that shouldn't be synced to the server
+ignore tmp$
+# update pattern(s) for files that might change without the modification time
+# changing as well
+update sav$
+update save$
+```
+
+The regex engine understands the following elements: '.', '*', '+', '?', '^', '$'
+### Location
+- On 3ds the config file has to be at "sdmc:/plybck.cfg"
+- On vita the config file has to be at "ux0:/data/plybck.cfg"
 ## Q&A
 1. The syncs are always really slow! How can that be?
 
@@ -103,6 +129,7 @@ with their own copyright header.
 
 The client library may be relicensed when the need arises, for example a GPLv2
 or proprietary sdk. Please be aware of that when creating pull requests.
+
 ## Known Issues
 - The 3DS client takes really long for directories with lots of files. This
   seems to be an inherent limitation of the 3ds.
