@@ -204,5 +204,5 @@ void bytiffy_uint32(uint8_t *dest, uint32_t val)
 void bytiffy_uint64(uint8_t *dest, uint64_t val)
 {
 	bytiffy_uint32(dest, val & 0xFFFFFFFF);
-	bytiffy_uint32(dest, (val >> 32) & 0xFFFFFFFF);
+	bytiffy_uint32(dest + 4, (val >> 32) & 0xFFFFFFFF);
 }

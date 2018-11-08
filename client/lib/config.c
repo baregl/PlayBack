@@ -70,6 +70,9 @@ char *skipnr(char *text, char *end)
 config_data *config_parse(char *file)
 {
 	config_data *data = calloc(1, sizeof(config_data));
+	data->dirs = calloc(1, sizeof(*(data->dirs)));
+	data->ignore = calloc(1, sizeof(*(data->ignore)));
+	data->update = calloc(1, sizeof(*(data->update)));
 	LOG("Opening config\n");
 	uint32_t size = clbk_file_size(file);
 	if (size > config_max_size)

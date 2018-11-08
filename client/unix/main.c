@@ -89,8 +89,6 @@ int clbk_open(char *path)
 	if (open_file != -1)
 		close(open_file);
 	open_file = open(path, O_RDONLY);
-	if (open_file == -1) {
-	}
 	return (open_file == -1) ? open_file : 0;
 }
 
@@ -111,7 +109,6 @@ void *clbk_open_dir(char *path)
 	dird->dir = opendir(path);
 	dird->path = malloc(strlen(path) + 1);
 	memcpy(dird->path, path, strlen(path) + 1);
-	;
 	return (dird->dir == NULL) ? NULL : dird;
 }
 
