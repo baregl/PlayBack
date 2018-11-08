@@ -135,7 +135,6 @@ void encrypted_send(uint8_t *data, int size)
 		clbk_show_error("Couldn't encrypt data to send");
 	clbk_send(enc_buffer + crypto_secretbox_BOXZEROBYTES,
 		  size - crypto_secretbox_BOXZEROBYTES);
-	clbk_delay(255);
 }
 
 // First crypto_secretbox_ZEROBYTES are going to be 0
