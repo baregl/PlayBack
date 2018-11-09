@@ -96,6 +96,7 @@ int main(void)
 
 void apt_thread(void *data)
 {
+	(void)(data);
 	while (aptMainLoop())
 		svcSleepThread(10000000);
 	exit(0);
@@ -232,6 +233,8 @@ void clbk_show_status(char *status)
 
 int clbk_config_entry(char *key, char *val)
 {
+	(void)(key);
+	(void)(val);
 	return -1;
 }
 

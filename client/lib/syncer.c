@@ -78,8 +78,8 @@ void send_dir(char *dir, char **ignore, char **update)
 		uint8_t *entry = padd_entry + e_padd;
 		// The upper bytes are 0
 		bytiffy_uint32(entry, (uint32_t)(dentry->dir ? 'd' : 'f'));
-		LOG("with size: %li, mtime %lli\n", dentry->size,
-		    dentry->mtime);
+		LOG("with size: %li, mtime %lli\n", (long int)dentry->size,
+		    (long long int)dentry->mtime);
 		bytiffy_uint32(entry + 4, dentry->size);
 		bytiffy_uint64(entry + 8, dentry->mtime);
 		uint16_t newlen = strlen(dir) + strlen(dentry->name) + 1;
@@ -88,7 +88,8 @@ void send_dir(char *dir, char **ignore, char **update)
 		strcpy((char *)(entry + 16), dir);
 		strcpy((char *)(entry + 16 + strlen(dir)), dentry->name);
 		// Zero out the rest
-		for (int i = newlen + 16; i < sizeof(padd_entry) - e_padd; i++)
+		for (int i = newlen + 16; i < (int)sizeof(padd_entry) - e_padd;
+		     i++)
 			entry[i] = 0;
 		LOG("Full path is %s, type %c\n", entry + 16, entry[0]);
 		if (check_regexps((char *)entry + 16, ignore)) {
@@ -126,7 +127,7 @@ void handle_transfer(uint8_t *transfer_req, char *base_dirs[])
 		    0};
 		uint8_t *transfer_buffer = padd_transfer_buffer + e_padd;
 		uint32_t size = clbk_file_size((char *)transfer_req + 1);
-		LOG("File size is %li\n", size);
+		LOG("File size is %li\n", (long int)size);
 		if (transfer_req[0] == 'f') {
 			bytiffy_uint32(transfer_buffer, size);
 			encrypted_send(padd_transfer_buffer, e_padd + 4);
@@ -166,7 +167,7 @@ void handle_transfer(uint8_t *transfer_req, char *base_dirs[])
 		}
 		bytiffy_uint32(transfer_buffer, h);
 		encrypted_send(padd_transfer_buffer, e_padd + 4);
-		LOG("Sent checksum %lx\n", h);
+		LOG("Sent checksum %lx\n", (long unsigned int)h);
 	}
 }
 
@@ -191,6 +192,8 @@ bool check_regexps(char *file, char **regexps)
 // purposes
 void randombytes(uint8_t *a, uint64_t b)
 {
+	(void)(a);
+	(void)(b);
 	clbk_show_error("called randombytes, usually not needed, just here for "
 			"linking errors");
 }

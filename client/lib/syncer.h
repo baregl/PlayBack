@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-// #define DEBUG
+#define DEBUG
 #ifdef DEBUG
 #include <stdio.h>
 #define LOG(fmt, ...) printf(fmt, ##__VA_ARGS__)

@@ -183,6 +183,8 @@ void clbk_show_status(char *status)
 
 int clbk_config_entry(char *key, char *val)
 {
+	(void)(key);
+	(void)(val);
 	return -1;
 }
 
