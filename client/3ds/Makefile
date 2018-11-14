@@ -95,7 +95,7 @@ endif
 #---------------------------------------------------------------------------------
 
 export OFILES	:=	$(addsuffix .o,$(BINFILES)) \
-			$(CPPFILES:.cpp=.o) $(CFILES:.c=.3ds.o) $(SFILES:.s=.o)
+			$(CPPFILES:.cpp=.o) $(CFILES:.c=.o) $(SFILES:.s=.o)
 
 export INCLUDE	:=	$(foreach dir,$(INCLUDES),-I$(CURDIR)/$(dir)) \
 			$(foreach dir,$(LIBDIRS),-I$(dir)/include) \
@@ -155,7 +155,7 @@ endif
 
 $(OUTPUT).elf	:	$(OFILES)
 
-%.3ds.o: %.c
+%.o: %.c
 	@echo $(notdir $<)
 	$(CC) -MMD -MP -MF $(DEPSDIR)/$*.d $(CFLAGS) -c $< -o $@ $(ERROR_FILTER)
 

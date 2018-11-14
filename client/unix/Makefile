@@ -1,38 +1,89 @@
-##
-# Unix PlayBack client
-#
-# @file
-# @version 0.1
+TOPDIR ?= $(CURDIR)
 
-LIB = ../lib
-BIN = plybk_c
+#---------------------------------------------------------------------------------
+# TARGET is the name of the output
+# BUILD is the directory where object files & intermediate files will be placed
+# SOURCES is a list of directories containing source code
+# INCLUDES is a list of directories containing header files
+#---------------------------------------------------------------------------------
+TARGET		:=	plybck
+BUILD		:=	build
+SOURCES	:=	. ../lib
+INCLUDES	:=	include ../lib
 
-SRC=${wildcard *.c} $(wildcard ${LIB}/*.c )
-OBJ=${SRC:.c=.unix.o}
-DEP=${SRC:.c=.d}
-INC=${LIB}
+#---------------------------------------------------------------------------------
+# options for code generation
+#---------------------------------------------------------------------------------
+CFLAGS	:=	-g -Wall -Wextra -flto -Os \
+			-fomit-frame-pointer -ffunction-sections
 
-CFLAGS=-std=gnu99 -Wall -Wextra -O2 -flto
-LDFLAGS=-flto
+CFLAGS	+=	$(INCLUDE)
 
-.PHONY: all clean clang-complete
+LDFLAGS	=	-Wl,-Map,$(notdir $*.map) -flto
 
-all:  clang-complete ${BIN}
+#---------------------------------------------------------------------------------
+# no real need to edit anything past this point unless you need to add additional
+# rules for different file extensions
+#---------------------------------------------------------------------------------
+CC := gcc
 
+ifneq ($(BUILD),$(notdir $(CURDIR)))
+#---------------------------------------------------------------------------------
+
+export OUTPUT	:=	$(CURDIR)/$(TARGET)
+export TOPDIR	:=	$(CURDIR)
+
+export VPATH	:=	$(foreach dir,$(SOURCES),$(CURDIR)/$(dir)) \
+			$(foreach dir,$(DATA),$(CURDIR)/$(dir))
+
+export DEPSDIR	:=	$(CURDIR)/$(BUILD)
+
+CFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.c)))
+
+export LD	:=	$(CC)
+
+export OFILES	:=	$(addsuffix .o,$(BINFILES)) \
+			$(CPPFILES:.cpp=.o) $(CFILES:.c=.o) $(SFILES:.s=.o)
+
+export INCLUDE	:=	$(foreach dir,$(INCLUDES),-I$(CURDIR)/$(dir)) \
+			-I$(CURDIR)/$(BUILD)
+
+export LIBPATHS	:=	$(foreach dir,$(LIBDIRS),-L$(dir)/lib)
+
+.PHONY: $(BUILD) clean all
+
+#---------------------------------------------------------------------------------
+all: $(BUILD)
+
+$(BUILD):
+	@[ -d $@ ] || mkdir -p $@
+	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
+
+#---------------------------------------------------------------------------------
 clean:
-	@${RM} ${BIN} ${OBJ} ${DEP}
+	@echo clean ...
+	@rm -fr $(BUILD) $(TARGET)
 
-${BIN}: ${OBJ}
-	@echo [L] $@
-	${CC} ${LDFLAGS} -o $@ $^
 
-%.unix.o: %.c
-	@echo [C] $<
-	${CC} ${CFLAGS} -MMD -I${INC} -c -o $@ $<
+#---------------------------------------------------------------------------------
+else
 
-clang-complete:
-	echo "-I$(LIB)" >.clang_complete
+DEPENDS	:=	$(OFILES:.o=.d)
 
--include ${DEP}
+#---------------------------------------------------------------------------------
+# main targets
+#---------------------------------------------------------------------------------
 
-# end
+$(OUTPUT)	:	$(OFILES)
+	@echo linking $(notdir $@)
+	@$(LD) $(LDFLAGS) $(OFILES) $(LIBS) -o $@
+
+%.o: %.c
+	@echo $(notdir $<)
+	$(CC) -MMD -MP -MF $(DEPSDIR)/$*.d $(CFLAGS) -c $< -o $@ $(ERROR_FILTER)
+
+-include $(DEPENDS)
+
+#---------------------------------------------------------------------------------------
+endif
+#---------------------------------------------------------------------------------------
